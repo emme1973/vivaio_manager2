@@ -1,0 +1,3481 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vivaio Manager - App Interna</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        /* ===== RESET E LAYOUT ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: #f4f7f6;
+            display: flex;
+            height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 220px;
+            background: #1e3c2c;
+            color: white;
+            padding: 25px 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+        .sidebar h2 {
+            font-size: 22px;
+            font-weight: 300;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #3a5e4a;
+            padding-bottom: 10px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+        .sidebar button {
+            background: transparent;
+            border: none;
+            color: #d4e0d9;
+            padding: 9px 12px;
+            text-align: left;
+            font-size: 13px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .sidebar button:hover {
+            background: #2a4f3a;
+            color: white;
+        }
+        .sidebar button.active {
+            background: #3a6b4e;
+            color: white;
+            font-weight: 600;
+        }
+
+        .main {
+            flex: 1;
+            padding: 20px 25px;
+            overflow-y: auto;
+            max-height: 100vh;
+        }
+        .main h1 {
+            font-size: 24px;
+            color: #1e3c2c;
+            margin-bottom: 18px;
+            font-weight: 400;
+            border-bottom: 2px solid #d0ddd7;
+            padding-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 16px;
+        }
+        .card h3 {
+            color: #1e3c2c;
+            margin-bottom: 10px;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        th {
+            text-align: left;
+            background: #eaf1ed;
+            padding: 6px 4px;
+            color: #1e3c2c;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        td {
+            padding: 6px 4px;
+            border-bottom: 1px solid #edf2f0;
+            vertical-align: middle;
+        }
+        .badge {
+            background: #d4e7dd;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            color: #1e3c2c;
+        }
+        .badge.urgente { background: #f8d7da; color: #721c24; }
+        .badge.disponibile { background: #d4edda; color: #155724; }
+        .badge.inuso { background: #fff3cd; color: #856404; }
+        .badge.manutenzione { background: #f8d7da; color: #721c24; }
+        .badge.approvato { background: #d4edda; color: #155724; }
+        .badge.inviato { background: #fff3cd; color: #856404; }
+        .badge.bozza { background: #e2e3e5; color: #383d41; }
+        .badge.rifiutato { background: #f8d7da; color: #721c24; }
+        .badge.completata { background: #d4edda; color: #155724; }
+        .badge.incorso { background: #cce5ff; color: #004085; }
+        .badge.ricorrente { background: #6f42c1; color: white; }
+        .badge.scaduto { background: #dc3545; color: white; }
+
+        .badge-tipo {
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            color: white;
+        }
+        .badge-tipo.manutenzioni { background: #6c757d; }
+        .badge-tipo.nuove_realizzazioni { background: #007bff; }
+        .badge-tipo.lavori_su_prati { background: #28a745; }
+        .badge-tipo.potature { background: #fd7e14; }
+        .badge-tipo.piattaforma { background: #6f42c1; }
+        .badge-tipo.trattamenti { background: #20c997; }
+        .badge-tipo.concimazioni { background: #17a2b8; }
+        .badge-tipo.consegne { background: #e83e8c; }
+        .badge-tipo.camion_con_gru { background: #dc3545; }
+        .badge-tipo.prato_sintetico { background: #28a745; }
+        .badge-tipo.impianti_anti_zanzare { background: #fd7e14; }
+        .badge-tipo.impianti_irrigazione { background: #007bff; }
+        .badge-tipo.luminarie_natalizie { background: #ffc107; }
+
+        .form-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 6px 0 10px;
+            align-items: center;
+        }
+        .form-row input, .form-row select, .form-row textarea {
+            padding: 6px 10px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            font-size: 12px;
+            flex: 1;
+            min-width: 110px;
+        }
+        .form-row textarea {
+            min-width: 150px;
+            resize: vertical;
+            height: 32px;
+        }
+        .form-row .btn {
+            flex: 0 0 auto;
+        }
+        .btn {
+            background: #1e3c2c;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #2a5a3e; }
+        .btn-small { padding: 3px 8px; font-size: 10px; background: #4a7a5e; margin: 1px; }
+        .btn-small:hover { background: #3a6a4e; }
+        .btn-danger { background: #a05252; }
+        .btn-danger:hover { background: #8a3a3a; }
+        .btn-warning { background: #d4a052; }
+        .btn-warning:hover { background: #c4903a; }
+        .btn-whatsapp { background: #25D366; }
+        .btn-whatsapp:hover { background: #1da851; }
+        .btn-pdf { background: #dc3545; }
+        .btn-pdf:hover { background: #c82333; }
+        .btn-import { background: #17a2b8; }
+        .btn-import:hover { background: #138496; }
+        .btn-ricorrente { background: #6f42c1; }
+        .btn-ricorrente:hover { background: #5a32a3; }
+        .btn-backup { background: #28a745; }
+        .btn-backup:hover { background: #1e7e34; }
+        .btn-restore { background: #fd7e14; }
+        .btn-restore:hover { background: #e06b0f; }
+        .btn-converti { background: #6f42c1; }
+        .btn-converti:hover { background: #5a32a3; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            max-width: 650px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+        .modal h2 {
+            color: #1e3c2c;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #d0ddd7;
+            padding-bottom: 10px;
+        }
+        .modal .form-row {
+            margin: 8px 0;
+        }
+        .modal .form-row label {
+            font-weight: 600;
+            color: #1e3c2c;
+            min-width: 100px;
+            font-size: 13px;
+        }
+        .modal .form-row input, .modal .form-row select, .modal .form-row textarea {
+            flex: 2;
+            min-width: 150px;
+        }
+        .modal .modal-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: flex-end;
+        }
+        .modal .dettaglio-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #edf2f0;
+            font-size: 13px;
+        }
+
+        .section { display: none; }
+        .section.active { display: block; }
+
+        /* AGENDA */
+        .agenda-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .agenda-nav .nav-buttons {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .agenda-nav .nav-buttons button {
+            padding: 4px 10px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        .agenda-nav .nav-buttons button:hover { background: #eaf1ed; }
+        .agenda-nav .nav-buttons .active-view {
+            background: #1e3c2c;
+            color: white;
+            border-color: #1e3c2c;
+        }
+        .agenda-nav .titolo-mese {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1e3c2c;
+        }
+
+        .agenda-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            gap: 2px;
+            background: #eaf1ed;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 10px;
+        }
+        .agenda-grid .header {
+            background: #1e3c2c;
+            color: white;
+            padding: 4px 3px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .agenda-grid .header.weekend { background: #3a5e4a; }
+        .agenda-grid .cell {
+            background: white;
+            padding: 3px 2px;
+            min-height: 50px;
+            font-size: 10px;
+            overflow-y: auto;
+            cursor: pointer;
+        }
+        .agenda-grid .cell:hover { background: #f0f5f2; }
+        .agenda-grid .cell.alt { background: #fafcfa; }
+        .agenda-grid .cell.oggi { background: #e8f5e9; border: 2px solid #1e3c2c; }
+        .agenda-grid .cell .evento {
+            background: #eaf1ed;
+            padding: 1px 3px;
+            border-radius: 3px;
+            margin: 1px 0;
+            font-size: 8px;
+            border-left: 3px solid #1e3c2c;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .agenda-grid .cell .evento.sopralluogo { border-left-color: #007bff; }
+        .agenda-grid .cell .evento.preventivo { border-left-color: #ffc107; }
+        .agenda-grid .cell .evento.commessa { border-left-color: #28a745; }
+        .agenda-grid .cell .evento.ricorrente { border-left-color: #6f42c1; border-left-style: dashed; }
+        .agenda-grid .cell .evento.manuale { border-left-color: #6c757d; }
+        .agenda-grid .cell .evento.scaduto { border-left-color: #dc3545; background: #f8d7da; }
+        .agenda-grid .cell .numero-giorno {
+            font-weight: 600;
+            color: #1e3c2c;
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+
+        .agenda-mese {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            background: #eaf1ed;
+            border-radius: 8px;
+            overflow: hidden;
+            font-size: 10px;
+        }
+        .agenda-mese .header {
+            background: #1e3c2c;
+            color: white;
+            padding: 4px 3px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        .agenda-mese .header.weekend { background: #3a5e4a; }
+        .agenda-mese .cell {
+            background: white;
+            padding: 3px;
+            min-height: 60px;
+            font-size: 9px;
+            cursor: pointer;
+        }
+        .agenda-mese .cell:hover { background: #f0f5f2; }
+        .agenda-mese .cell.alt { background: #fafcfa; }
+        .agenda-mese .cell.oggi { background: #e8f5e9; border: 2px solid #1e3c2c; }
+        .agenda-mese .cell .numero {
+            font-weight: 600;
+            color: #1e3c2c;
+            font-size: 11px;
+            margin-bottom: 2px;
+        }
+        .agenda-mese .cell .evento {
+            background: #eaf1ed;
+            padding: 1px 3px;
+            border-radius: 3px;
+            margin: 1px 0;
+            font-size: 7px;
+            border-left: 2px solid #1e3c2c;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .agenda-mese .cell .evento.sopralluogo { border-left-color: #007bff; }
+        .agenda-mese .cell .evento.preventivo { border-left-color: #ffc107; }
+        .agenda-mese .cell .evento.commessa { border-left-color: #28a745; }
+        .agenda-mese .cell .evento.ricorrente { border-left-color: #6f42c1; border-left-style: dashed; }
+        .agenda-mese .cell .evento.manuale { border-left-color: #6c757d; }
+        .agenda-mese .cell .evento.scaduto { border-left-color: #dc3545; background: #f8d7da; }
+        .agenda-mese .cell .vuoto { color: #ccc; font-size: 16px; text-align: center; padding-top: 12px; }
+
+        .cliente-scheda {
+            background: #f8faf9;
+            border: 1px solid #ccd9d3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            display: none;
+        }
+        .cliente-scheda.visible { display: block; }
+        .cliente-scheda .riga {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 3px 0;
+        }
+        .cliente-scheda .etichetta {
+            font-weight: 600;
+            color: #1e3c2c;
+            min-width: 100px;
+            font-size: 12px;
+        }
+        .cliente-scheda .valore { flex: 1; font-size: 12px; }
+        .cliente-scheda .stat-box {
+            display: inline-block;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            border: 1px solid #d0ddd7;
+            margin: 4px 8px 4px 0;
+            text-align: center;
+        }
+        .cliente-scheda .stat-box .numero {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e3c2c;
+        }
+        .cliente-scheda .stat-box .label {
+            font-size: 10px;
+            color: #666;
+        }
+        .cliente-scheda .storico-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #edf2f0;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        .cliente-scheda .storico-item .data { color: #666; font-size: 11px; min-width: 80px; }
+        .cliente-scheda .storico-item .desc { flex: 1; margin: 0 8px; }
+        .cliente-scheda .storico-item .tipo { font-size: 10px; }
+
+        .scheda-lavoro {
+            background: #f8faf9;
+            border: 1px solid #ccd9d3;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-top: 10px;
+            display: none;
+        }
+        .scheda-lavoro.visible { display: block; }
+        .scheda-lavoro .riga {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin: 3px 0;
+        }
+        .scheda-lavoro .etichetta {
+            font-weight: 600;
+            color: #1e3c2c;
+            min-width: 90px;
+            font-size: 12px;
+        }
+        .scheda-lavoro .valore { flex: 1; font-size: 12px; }
+        .scheda-lavoro .azioni {
+            margin-top: 8px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .multiselect-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            padding: 4px 6px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            background: white;
+            min-height: 32px;
+            flex: 1;
+            min-width: 120px;
+        }
+        .multiselect-container .tag {
+            background: #1e3c2c;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .multiselect-container .tag .remove {
+            cursor: pointer;
+            font-weight: bold;
+            color: #ff6b6b;
+        }
+        .multiselect-container select {
+            border: none;
+            background: transparent;
+            font-size: 11px;
+            flex: 1;
+            min-width: 60px;
+            outline: none;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .search-box input {
+            flex: 1;
+            min-width: 200px;
+            padding: 8px 14px;
+            border: 2px solid #ccd9d3;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .search-box input:focus {
+            border-color: #1e3c2c;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(30, 60, 44, 0.1);
+        }
+        .search-box .results-count {
+            font-size: 12px;
+            color: #666;
+            padding: 4px 10px;
+            background: #eaf1ed;
+            border-radius: 20px;
+        }
+
+        .import-area {
+            background: #f8faf9;
+            border: 2px dashed #ccd9d3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        .import-area textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 10px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        .import-area .info { font-size: 11px; color: #666; margin: 8px 0; }
+
+        .table-wrapper {
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .table-wrapper table { min-width: 400px; }
+        .btn-group { display: flex; gap: 3px; flex-wrap: wrap; }
+
+        .ricorrente-box {
+            background: #f0ebf8;
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin: 8px 0;
+        }
+        .anteprima-ricorrenza {
+            display: none;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #6f42c1;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .anteprima-ricorrenza .title {
+            font-weight: 600;
+            color: #6f42c1;
+            margin-bottom: 5px;
+        }
+        .anteprima-ricorrenza .date-tag {
+            background: #eaf1ed;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-block;
+            margin: 2px;
+        }
+        .anteprima-ricorrenza .info {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #6f42c1;
+            font-weight: bold;
+        }
+
+        .alert-box {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+        .alert-box.danger {
+            background: #f8d7da;
+            border: 1px solid #dc3545;
+            color: #721c24;
+        }
+        .alert-box.warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+        }
+        .alert-box.info {
+            background: #d1ecf1;
+            border: 1px solid #17a2b8;
+            color: #0c5460;
+        }
+        .alert-box .icon { font-size: 18px; }
+        .alert-box .count { font-weight: 700; font-size: 16px; }
+
+        .filtri-commesse {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8faf9;
+            border-radius: 6px;
+        }
+        .filtri-commesse select, .filtri-commesse input {
+            padding: 5px 10px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+        .filtri-commesse .btn-clear {
+            background: #eaf1ed;
+            color: #1e3c2c;
+            border: 1px solid #ccd9d3;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .filtri-commesse .btn-clear:hover { background: #d0ddd7; }
+
+        .lavoro-giornaliero {
+            background: #f8faf9;
+            border-radius: 6px;
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-left: 4px solid #1e3c2c;
+        }
+        .lavoro-giornaliero.scaduto { border-left-color: #dc3545; background: #f8d7da; }
+        .lavoro-giornaliero .titolo { font-weight: 600; font-size: 13px; }
+        .lavoro-giornaliero .dettagli { font-size: 11px; color: #666; }
+
+        .backup-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        .backup-actions .btn {
+            flex: 1;
+            min-width: 120px;
+            text-align: center;
+            font-size: 13px;
+            padding: 10px 16px;
+        }
+
+        .file-input-hidden { display: none; }
+
+        .descrizione-libera {
+            flex: 2;
+            min-width: 200px;
+        }
+        .descrizione-libera textarea {
+            width: 100%;
+            min-height: 50px;
+            padding: 6px 10px;
+            border: 1px solid #ccd9d3;
+            border-radius: 6px;
+            font-size: 12px;
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 6px;
+                gap: 2px;
+                max-height: 120px;
+                overflow-y: auto;
+            }
+            .sidebar h2 {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 3px;
+                font-size: 14px;
+                padding-bottom: 3px;
+            }
+            .sidebar button {
+                padding: 3px 6px;
+                font-size: 9px;
+                flex: 1;
+                text-align: center;
+                min-width: 40px;
+            }
+            .main { padding: 8px; }
+            .form-row { flex-direction: column; }
+            .form-row input, .form-row select, .form-row textarea { min-width: 100%; }
+            .agenda-grid, .agenda-mese {
+                grid-template-columns: 35px repeat(7, 1fr);
+                font-size: 8px;
+            }
+            .agenda-grid .cell, .agenda-mese .cell { min-height: 35px; padding: 2px; }
+            .agenda-nav .titolo-mese { font-size: 12px; }
+            table { font-size: 9px; }
+            td, th { padding: 2px 2px; }
+            .modal { padding: 15px; }
+            .modal .form-row label { min-width: 70px; font-size: 11px; }
+            .filtri-commesse { flex-direction: column; }
+            .backup-actions .btn { min-width: 100%; }
+            .descrizione-libera { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>🌱 Vivaio</h2>
+        <button class="active" data-section="dashboard">📊 Dashboard</button>
+        <button data-section="agenda">📅 Agenda</button>
+        <button data-section="personale">👥 Personale</button>
+        <button data-section="attrezzature">🔧 Magazzino</button>
+        <button data-section="clienti">📇 Clienti</button>
+        <button data-section="scheda-cliente">📋 Scheda Cliente</button>
+        <button data-section="sopralluoghi">📍 Sopralluoghi</button>
+        <button data-section="preventivi">📄 Preventivi</button>
+        <button data-section="commesse">📋 Commesse</button>
+        <button data-section="schede">📋 Schede Lavoro</button>
+    </div>
+
+    <div class="main">
+
+        <!-- ===== DASHBOARD ===== -->
+        <div id="dashboard" class="section active">
+            <h1>📊 Dashboard</h1>
+
+            <!-- BACKUP -->
+            <div class="card">
+                <h3>💾 Backup & Sincronizzazione</h3>
+                <div class="backup-actions">
+                    <button class="btn btn-backup" onclick="esportaBackup()">💾 Esporta Backup</button>
+                    <button class="btn btn-restore" onclick="document.getElementById('file-input').click()">📥 Importa Backup</button>
+                    <input type="file" id="file-input" class="file-input-hidden" accept=".json" onchange="importaBackup(event)">
+                    <button class="btn btn-small" onclick="mostraInfoBackup()" style="background:#6c757d;">ℹ️ Info</button>
+                </div>
+                <div style="font-size:11px; color:#666; margin-top:5px;">
+                    📌 Ultimo backup: <span id="ultimo-backup">Mai effettuato</span>
+                </div>
+            </div>
+
+            <!-- STATISTICHE -->
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <div class="card" style="flex:1; min-width:70px;"><h3>👥 Personale</h3><p style="font-size:22px;" id="count-personale">0</p></div>
+                <div class="card" style="flex:1; min-width:70px;"><h3>🔧 Attrezz.</h3><p style="font-size:22px;" id="count-attrezzature">0</p></div>
+                <div class="card" style="flex:1; min-width:70px;"><h3>📇 Clienti</h3><p style="font-size:22px;" id="count-clienti">0</p></div>
+                <div class="card" style="flex:1; min-width:70px;"><h3>📋 Commesse</h3><p style="font-size:22px;" id="count-commesse">0</p></div>
+                <div class="card" style="flex:1; min-width:70px;"><h3>📄 Preventivi</h3><p style="font-size:22px;" id="count-preventivi">0</p></div>
+            </div>
+
+            <!-- ALLERTE -->
+            <div class="card">
+                <h3>⚠️ Allerte</h3>
+                <div id="alert-container"></div>
+            </div>
+
+            <!-- LAVORI GIORNALIERI -->
+            <div class="card">
+                <h3>📋 Lavori in corso oggi <span style="font-size:12px; font-weight:400; color:#666;" id="data-oggi-label"></span></h3>
+                <div id="lavori-giornalieri-container"></div>
+            </div>
+
+            <!-- ATTIVITA RECENTI -->
+            <div class="card">
+                <h3>⚡ Attività recenti</h3>
+                <div id="attivita-recenti" style="max-height:180px; overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- ===== AGENDA ===== -->
+        <div id="agenda" class="section">
+            <h1>📅 Agenda Organizer</h1>
+            <div class="card">
+                <div class="agenda-nav">
+                    <div class="nav-buttons">
+                        <button onclick="cambiaVista('settimana')" id="btn-settimana" class="active-view">Settimana</button>
+                        <button onclick="cambiaVista('mese')" id="btn-mese">Mese</button>
+                    </div>
+                    <div class="nav-buttons">
+                        <button onclick="navAgenda(-1)">◀</button>
+                        <span class="titolo-mese" id="agenda-titolo">Settimana</span>
+                        <button onclick="navAgenda(1)">▶</button>
+                        <button onclick="resetAgenda()" style="background:#eaf1ed;border-color:#1e3c2c;color:#1e3c2c;">Oggi</button>
+                    </div>
+                </div>
+                <div id="agenda-container"></div>
+            </div>
+        </div>
+
+        <!-- ===== PERSONALE ===== -->
+        <div id="personale" class="section">
+            <h1>👥 Personale <button class="btn btn-pdf" onclick="esportaPDF('personale')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="form-row">
+                    <input type="text" id="nome-personale" placeholder="Nome e cognome*">
+                    <input type="text" id="qualifica-personale" placeholder="Qualifica">
+                    <input type="tel" id="telefono-personale" placeholder="Telefono*">
+                    <button class="btn" onclick="aggiungiPersonale()">+ Aggiungi</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Nome</th><th>Qualifica</th><th>Telefono</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-personale"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== ATTREZZATURE ===== -->
+        <div id="attrezzature" class="section">
+            <h1>🔧 Magazzino <button class="btn btn-pdf" onclick="esportaPDF('attrezzature')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="form-row">
+                    <input type="text" id="nome-attrezzatura" placeholder="Nome*">
+                    <input type="number" id="quantita-attrezzatura" placeholder="Quantità" value="1" min="1">
+                    <select id="stato-attrezzatura">
+                        <option value="Disponibile">Disponibile</option>
+                        <option value="In uso">In uso</option>
+                        <option value="Manutenzione">Manutenzione</option>
+                    </select>
+                    <button class="btn" onclick="aggiungiAttrezzatura()">+ Aggiungi</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Nome</th><th>Quantità</th><th>Stato</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-attrezzature"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CLIENTI ===== -->
+        <div id="clienti" class="section">
+            <h1>📇 Clienti <button class="btn btn-pdf" onclick="esportaPDF('clienti')">📄 PDF</button> <button class="btn btn-import" onclick="mostraImport()">📥 Importa da Access</button></h1>
+            <div class="card" id="import-area" style="display:none;">
+                <h3>📥 Importa Clienti da Access</h3>
+                <div class="import-area">
+                    <div class="info">
+                        <strong>Come importare:</strong> Copia i dati dalla tabella Access e incollali qui sotto.<br>
+                        <strong>Formato richiesto:</strong> Ogni riga = un cliente, campi separati da TAB o punto e virgola.<br>
+                        <strong>Ordine campi:</strong> Nome, Indirizzo, Telefono, Email, Note (solo Nome è obbligatorio)
+                    </div>
+                    <textarea id="import-text" placeholder="Copia qui i tuoi clienti da Access...&#10;Esempio:&#10;Mario Rossi;Via Roma 1;3331234567;mario@email.it;Cliente fedele&#10;Laura Bianchi;Via Milano 2;3339876543;laura@email.it;"></textarea>
+                    <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-import" onclick="importaClienti()">📥 Importa Clienti</button>
+                        <button class="btn" onclick="annullaImport()">Annulla</button>
+                        <span style="font-size:12px; color:#666; margin-left:10px;" id="import-stats"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="form-row">
+                    <input type="text" id="nome-cliente" placeholder="Nome*">
+                    <input type="text" id="indirizzo-cliente" placeholder="Indirizzo completo">
+                    <input type="tel" id="telefono-cliente" placeholder="Telefono">
+                    <input type="email" id="email-cliente" placeholder="Email">
+                </div>
+                <div class="form-row">
+                    <textarea id="note-cliente" placeholder="Note" rows="2" style="flex:2;"></textarea>
+                    <button class="btn" onclick="aggiungiCliente()">+ Aggiungi</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Nome</th><th>Indirizzo</th><th>Telefono</th><th>Email</th><th>Note</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-clienti"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SCHEDA CLIENTE ===== -->
+        <div id="scheda-cliente" class="section">
+            <h1>📋 Scheda Cliente <button class="btn btn-pdf" onclick="esportaPDF('scheda-cliente')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="search-box">
+                    <input type="text" id="ricerca-cliente-scheda" placeholder="🔍 Cerca cliente per nome, telefono o indirizzo..." oninput="filtraClientiScheda()">
+                    <span class="results-count" id="risultati-count">0 clienti trovati</span>
+                </div>
+                <div id="lista-clienti-scheda" style="max-height:200px; overflow-y:auto; margin-bottom:10px;">
+                    <div style="color:#888; padding:10px; text-align:center;">Inizia a digitare per cercare un cliente</div>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                    <button class="btn btn-small" onclick="selezionaClienteSchedaById()">📌 Vai al cliente selezionato</button>
+                </div>
+            </div>
+            <div id="cliente-scheda-container" class="cliente-scheda">
+                <div class="riga"><span class="etichetta">📇 Nome:</span><span class="valore" id="sc-nome">-</span></div>
+                <div class="riga"><span class="etichetta">📍 Indirizzo:</span><span class="valore" id="sc-indirizzo">-</span></div>
+                <div class="riga"><span class="etichetta">📞 Telefono:</span><span class="valore" id="sc-telefono">-</span></div>
+                <div class="riga"><span class="etichetta">✉️ Email:</span><span class="valore" id="sc-email">-</span></div>
+                <div class="riga"><span class="etichetta">📝 Note:</span><span class="valore" id="sc-note">-</span></div>
+                <div style="margin: 10px 0; border-top: 2px solid #d0ddd7; padding-top: 10px;">
+                    <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                        <div class="stat-box"><div class="numero" id="sc-tot-sopralluoghi">0</div><div class="label">Sopralluoghi</div></div>
+                        <div class="stat-box"><div class="numero" id="sc-tot-preventivi">0</div><div class="label">Preventivi</div></div>
+                        <div class="stat-box"><div class="numero" id="sc-tot-commesse">0</div><div class="label">Commesse</div></div>
+                        <div class="stat-box"><div class="numero" id="sc-tot-commesse-attive">0</div><div class="label">Commesse attive</div></div>
+                    </div>
+                </div>
+                <div style="margin: 10px 0; border-top: 2px solid #d0ddd7; padding-top: 10px;">
+                    <h4 style="color:#1e3c2c; margin-bottom:8px;">📋 Storico attività</h4>
+                    <div id="sc-storico" style="max-height:250px; overflow-y:auto;">
+                        <div style="color:#888; padding:10px; text-align:center;">Nessuna attività</div>
+                    </div>
+                </div>
+                <div class="azioni">
+                    <button class="btn btn-whatsapp" onclick="inviaWhatsAppCliente()">📱 WhatsApp</button>
+                    <button class="btn btn-pdf" onclick="esportaPDF('scheda-cliente')">📄 PDF</button>
+                    <button class="btn btn-small" onclick="apriModificaClienteScheda()">✏️ Modifica Cliente</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SOPRALLUOGHI ===== -->
+        <div id="sopralluoghi" class="section">
+            <h1>📍 Sopralluoghi <button class="btn btn-pdf" onclick="esportaPDF('sopralluoghi')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="form-row">
+                    <select id="cliente-sopralluogo" style="flex:1.5;"><option value="">Seleziona cliente*</option></select>
+                    <input type="date" id="data-sopralluogo">
+                    <input type="time" id="ora-sopralluogo">
+                </div>
+                <div class="form-row">
+                    <input type="text" id="note-sopralluogo" placeholder="Note" style="flex:2;">
+                    <button class="btn" onclick="aggiungiSopralluogo()">+ Aggiungi</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Cliente</th><th>Indirizzo</th><th>Telefono</th><th>Data</th><th>Ora</th><th>Note</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-sopralluoghi"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== PREVENTIVI ===== -->
+        <div id="preventivi" class="section">
+            <h1>📄 Preventivi <button class="btn btn-pdf" onclick="esportaPDF('preventivi')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="form-row">
+                    <select id="cliente-preventivo" style="flex:1.5;"><option value="">Seleziona cliente*</option></select>
+                    <input type="date" id="data-preventivo">
+                    <input type="text" id="oggetto-preventivo" placeholder="Oggetto*">
+                </div>
+                <div class="form-row">
+                    <textarea id="dettagli-preventivo" placeholder="Dettagli" rows="2" style="flex:2;"></textarea>
+                    <input type="number" id="importo-preventivo" placeholder="Importo €" step="0.01" min="0" style="flex:0.8;">
+                    <button class="btn" onclick="aggiungiPreventivo()">+ Aggiungi</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Cliente</th><th>Indirizzo</th><th>Telefono</th><th>Data</th><th>Oggetto</th><th>Importo</th><th>Stato</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-preventivi"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== COMMESSE ===== -->
+        <div id="commesse" class="section">
+            <h1>📋 Commesse <button class="btn btn-pdf" onclick="esportaPDF('commesse')">📄 PDF</button></h1>
+            <div class="card">
+                <div class="filtri-commesse">
+                    <select id="filtro-tipo-commessa" onchange="applicaFiltriCommesse()">
+                        <option value="">Tutte le tipologie</option>
+                        <option value="manutenzioni">Manutenzioni</option>
+                        <option value="nuove_realizzazioni">Nuove realizzazioni</option>
+                        <option value="lavori_su_prati">Lavori su prati</option>
+                        <option value="potature">Potature</option>
+                        <option value="piattaforma">Piattaforma</option>
+                        <option value="trattamenti">Trattamenti</option>
+                        <option value="concimazioni">Concimazioni</option>
+                        <option value="consegne">Consegne</option>
+                        <option value="camion_con_gru">Camion con gru</option>
+                        <option value="prato_sintetico">Prato sintetico</option>
+                        <option value="impianti_anti_zanzare">Impianti anti zanzare</option>
+                        <option value="impianti_irrigazione">Impianti di irrigazione</option>
+                        <option value="luminarie_natalizie">Luminarie natalizie</option>
+                    </select>
+                    <select id="filtro-cliente-commessa" onchange="applicaFiltriCommesse()">
+                        <option value="">Tutti i clienti</option>
+                    </select>
+                    <input type="date" id="filtro-data-commessa" onchange="applicaFiltriCommesse()">
+                    <button class="btn-clear" onclick="resetFiltriCommesse()">✖ Cancella filtri</button>
+                </div>
+
+                <div class="form-row">
+                    <select id="cliente-commessa" style="flex:1.2;"><option value="">Seleziona cliente*</option></select>
+                    <select id="tipo-commessa" style="flex:1;">
+                        <option value="">Seleziona tipologia*</option>
+                        <option value="manutenzioni">Manutenzioni</option>
+                        <option value="nuove_realizzazioni">Nuove realizzazioni</option>
+                        <option value="lavori_su_prati">Lavori su prati</option>
+                        <option value="potature">Potature</option>
+                        <option value="piattaforma">Piattaforma</option>
+                        <option value="trattamenti">Trattamenti</option>
+                        <option value="concimazioni">Concimazioni</option>
+                        <option value="consegne">Consegne</option>
+                        <option value="camion_con_gru">Camion con gru</option>
+                        <option value="prato_sintetico">Prato sintetico</option>
+                        <option value="impianti_anti_zanzare">Impianti anti zanzare</option>
+                        <option value="impianti_irrigazione">Impianti di irrigazione</option>
+                        <option value="luminarie_natalizie">Luminarie natalizie</option>
+                    </select>
+                    <input type="date" id="data-commessa" placeholder="Data (opzionale)">
+                </div>
+                <div class="form-row">
+                    <div class="descrizione-libera">
+                        <textarea id="descrizione-commessa" placeholder="Inserisci la descrizione del lavoro*" rows="2"></textarea>
+                    </div>
+                    <select id="attrezzatura-commessa" style="flex:1.2;"><option value="">Seleziona attrezzatura</option></select>
+                    <select id="personale-commessa" style="flex:1.2;"><option value="">Seleziona personale</option></select>
+                </div>
+
+                <div class="ricorrente-box">
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                        <label style="font-size:13px; font-weight:600; color:#6f42c1; display:flex; align-items:center; gap:6px;">
+                            <input type="checkbox" id="ricorrente-check" onchange="toggleRicorrente()"> 🔄 Attività ricorrente
+                        </label>
+                        <div id="ricorrente-options" style="display:none; gap:8px; flex-wrap:wrap; align-items:center; flex:1;">
+                            <select id="ricorrente-cadenza" style="flex:0.8; min-width:100px; padding:5px 8px; border:1px solid #ccd9d3; border-radius:6px;">
+                                <option value="giornaliera">Giornaliera</option>
+                                <option value="settimanale" selected>Settimanale</option>
+                                <option value="mensile">Mensile</option>
+                                <option value="annuale">Annuale</option>
+                            </select>
+                            <span style="font-size:12px; color:#666;">Ogni</span>
+                            <input type="number" id="ricorrente-intervallo" value="1" min="1" style="width:60px; padding:5px 8px; border:1px solid #ccd9d3; border-radius:6px;">
+                            <span style="font-size:12px; color:#666;">volte</span>
+                            <span style="font-size:12px; color:#666; margin-left:5px;">per</span>
+                            <input type="number" id="ricorrente-ripetizioni" placeholder="Ripetizioni" value="12" min="1" style="width:70px; padding:5px 8px; border:1px solid #ccd9d3; border-radius:6px;">
+                            <span style="font-size:12px; color:#666;">ripetizioni</span>
+                            <button class="btn btn-ricorrente" onclick="anteprimaRicorrenza()" style="font-size:11px; padding:4px 12px;">👁️ Anteprima</button>
+                        </div>
+                    </div>
+                    <div class="anteprima-ricorrenza" id="anteprima-ricorrenza">
+                        <div class="title">📅 Date generate:</div>
+                        <div id="anteprima-date" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
+                        <div class="info" id="anteprima-info"></div>
+                    </div>
+                </div>
+
+                <div class="form-row" style="justify-content:flex-end; margin-top:5px;">
+                    <button class="btn" onclick="aggiungiCommessa()" style="background:#1e3c2c;">+ Aggiungi commessa</button>
+                    <button class="btn btn-ricorrente" onclick="generaRicorrenza()" id="btn-genera-ricorrente" style="display:none;">🔄 Genera Ricorrenza</button>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Cliente</th><th>Indirizzo</th><th>Telefono</th><th>Tipologia</th><th>Descrizione</th><th>Data</th><th>Attrezz.</th><th>Personale</th><th>Stato</th><th>Ricorrenza</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-commesse"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== SCHEDE LAVORO ===== -->
+        <div id="schede" class="section">
+            <h1>📋 Schede Lavoro</h1>
+            <div class="card">
+                <div class="form-row">
+                    <select id="scheda-commessa" style="flex:2;">
+                        <option value="">Seleziona una commessa</option>
+                    </select>
+                    <button class="btn" onclick="generaScheda()">📄 Genera Scheda</button>
+                </div>
+                <div id="scheda-lavoro-container" class="scheda-lavoro">
+                    <div class="riga"><span class="etichetta">📋 Commessa:</span><span class="valore" id="scheda-titolo">-</span></div>
+                    <div class="riga"><span class="etichetta">🏷️ Tipologia:</span><span class="valore" id="scheda-tipo">-</span></div>
+                    <div class="riga"><span class="etichetta">👤 Cliente:</span><span class="valore" id="scheda-cliente">-</span></div>
+                    <div class="riga"><span class="etichetta">📅 Data:</span><span class="valore" id="scheda-data">-</span></div>
+                    <div class="riga"><span class="etichetta">📝 Descrizione:</span><span class="valore" id="scheda-descrizione">-</span></div>
+                    <div class="riga">
+                        <span class="etichetta">🔧 Attrezzature:</span>
+                        <div class="valore">
+                            <div class="multiselect-container" id="scheda-attrezzature-container">
+                                <select id="scheda-attrezzature-select" onchange="aggiungiAttrezzaturaScheda(this)">
+                                    <option value="">Aggiungi attrezzatura...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="riga">
+                        <span class="etichetta">👥 Personale:</span>
+                        <div class="valore">
+                            <div class="multiselect-container" id="scheda-personale-container">
+                                <select id="scheda-personale-select" onchange="aggiungiPersonaleScheda(this)">
+                                    <option value="">Aggiungi personale...</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="riga"><span class="etichetta">📊 Stato:</span><span class="valore" id="scheda-stato">-</span></div>
+                    <div class="riga"><span class="etichetta">📝 Note:</span>
+                        <textarea id="scheda-note" rows="3" style="flex:1; padding:6px; border:1px solid #ccd9d3; border-radius:6px; font-size:12px;" placeholder="Aggiungi note per il personale..."></textarea>
+                    </div>
+                    <div class="azioni">
+                        <button class="btn btn-whatsapp" onclick="inviaWhatsApp()">📱 WhatsApp</button>
+                        <button class="btn btn-pdf" onclick="esportaPDF('scheda')">📄 PDF</button>
+                        <button class="btn" onclick="stampaScheda()">🖨️ Stampa</button>
+                        <button class="btn btn-small" onclick="copiaScheda()">📋 Copia</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>📋 Storico Schede Lavoro <button class="btn btn-pdf" onclick="esportaPDF('schede')">📄 PDF</button></h3>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Data</th><th>Commessa</th><th>Cliente</th><th>Tipologia</th><th>Personale</th><th>Azioni</th></tr></thead>
+                        <tbody id="tabella-schede"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== MODALE AGENDA DETTAGLI ===== -->
+    <div class="modal-overlay" id="modal-agenda-dettagli">
+        <div class="modal">
+            <h2 id="modal-agenda-titolo">📅 Dettagli Giorno</h2>
+            <div id="modal-agenda-contenuto"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="chiudiModalAgenda()">Chiudi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODALE MODIFICA ===== -->
+    <div class="modal-overlay" id="modal-modifica">
+        <div class="modal">
+            <h2 id="modal-titolo">✏️ Modifica</h2>
+            <div id="modal-contenuto"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="salvaModifica()">💾 Salva</button>
+                <button class="btn btn-danger" onclick="chiudiModale()">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODALE CONVERTI PREVENTIVO ===== -->
+    <div class="modal-overlay" id="modal-converti">
+        <div class="modal">
+            <h2>📋 Converti Preventivo in Commessa</h2>
+            <div id="modal-converti-contenuto"></div>
+            <div class="modal-actions">
+                <button class="btn" onclick="salvaConverti()">💾 Converti in Commessa</button>
+                <button class="btn btn-danger" onclick="chiudiConverti()">Annulla</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODALE INFO BACKUP ===== -->
+    <div class="modal-overlay" id="modal-info-backup">
+        <div class="modal">
+            <h2>💾 Info Backup</h2>
+            <div style="font-size:14px; line-height:1.8;">
+                <p><strong>Come funziona il backup:</strong></p>
+                <ul style="padding-left:20px; margin:10px 0;">
+                    <li><strong>💾 Esporta Backup</strong> → Scarica un file JSON con tutti i tuoi dati</li>
+                    <li><strong>📥 Importa Backup</strong> → Carica un file JSON per ripristinare i dati</li>
+                </ul>
+                <p><strong>📱 Su smartphone:</strong></p>
+                <ul style="padding-left:20px; margin:10px 0;">
+                    <li>Il backup si scarica come file nella cartella Download</li>
+                    <li>Per importare, clicca su "Importa Backup" e seleziona il file</li>
+                    <li>Puoi salvare il backup su Google Drive, Dropbox o inviarlo via email</li>
+                </ul>
+                <p><strong>🔗 Sincronizzazione tra dispositivi:</strong></p>
+                <ul style="padding-left:20px; margin:10px 0;">
+                    <li>Fai backup dal dispositivo A</li>
+                    <li>Salva il file su cloud (Google Drive, Dropbox, ecc.)</li>
+                    <li>Dal dispositivo B, fai import del file</li>
+                </ul>
+                <p><strong>🌐 Hosting su GitHub Pages:</strong></p>
+                <ul style="padding-left:20px; margin:10px 0;">
+                    <li>Crea un repository su GitHub</li>
+                    <li>Carica il file index.html</li>
+                    <li>Vai su Settings → Pages → Branch main → Save</li>
+                    <li>L'app sarà disponibile a: https://tuouser.github.io/tuorepo/</li>
+                </ul>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="document.getElementById('modal-info-backup').classList.remove('active')">Chiudi</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //   DATI
+        // ================================================================
+        let dati = {
+            personale: [],
+            attrezzature: [],
+            clienti: [],
+            sopralluoghi: [],
+            preventivi: [],
+            commesse: [],
+            agenda: [],
+            schede: [],
+            versione: '1.1',
+            ultimo_backup: null
+        };
+
+        const TIPOLOGIE = [
+            'manutenzioni', 'nuove_realizzazioni', 'lavori_su_prati', 'potature',
+            'piattaforma', 'trattamenti', 'concimazioni', 'consegne',
+            'camion_con_gru', 'prato_sintetico', 'impianti_anti_zanzare',
+            'impianti_irrigazione', 'luminarie_natalizie'
+        ];
+
+        const TIPOLOGIE_LABEL = {
+            'manutenzioni': 'Manutenzioni',
+            'nuove_realizzazioni': 'Nuove realizzazioni',
+            'lavori_su_prati': 'Lavori su prati',
+            'potature': 'Potature',
+            'piattaforma': 'Piattaforma',
+            'trattamenti': 'Trattamenti',
+            'concimazioni': 'Concimazioni',
+            'consegne': 'Consegne',
+            'camion_con_gru': 'Camion con gru',
+            'prato_sintetico': 'Prato sintetico',
+            'impianti_anti_zanzare': 'Impianti anti zanzare',
+            'impianti_irrigazione': 'Impianti di irrigazione',
+            'luminarie_natalizie': 'Luminarie natalizie'
+        };
+
+        let agendaVista = 'settimana';
+        let agendaData = new Date();
+        let schedaCorrente = null;
+        let schedaAttrezzature = [];
+        let schedaPersonale = [];
+
+        let modificaTipo = null;
+        let modificaId = null;
+        let clienteSelezionato = null;
+        let clienteSelezionatoId = null;
+
+        // Variabili per conversione preventivo
+        let convertiPreventivoId = null;
+
+        // ================================================================
+        //   CARICA / SALVA DATI
+        // ================================================================
+        function caricaDati() {
+            const salvato = localStorage.getItem('vivaio_dati_v13');
+            if (salvato) {
+                try { 
+                    const parsed = JSON.parse(salvato);
+                    dati = parsed;
+                    if (!dati.versione) dati.versione = '1.1';
+                    if (!dati.ultimo_backup) dati.ultimo_backup = null;
+                } catch (e) { /* ignora */ }
+            }
+            if (!dati.agenda) dati.agenda = [];
+            if (!dati.sopralluoghi) dati.sopralluoghi = [];
+            if (!dati.preventivi) dati.preventivi = [];
+            if (!dati.commesse) dati.commesse = [];
+            if (!dati.clienti) dati.clienti = [];
+            if (!dati.personale) dati.personale = [];
+            if (!dati.attrezzature) dati.attrezzature = [];
+            if (!dati.schede) dati.schede = [];
+            
+            if (dati.ultimo_backup) {
+                document.getElementById('ultimo-backup').textContent = formatDateDisplay(dati.ultimo_backup) + ' ' + (dati.ultimo_backup.split('T')[1]?.slice(0,5) || '');
+            }
+        }
+
+        function salvaDati() {
+            localStorage.setItem('vivaio_dati_v13', JSON.stringify(dati));
+            aggiornaTutteLeTabelle();
+            aggiornaSelectClienti();
+            aggiornaSelectAttrezzature();
+            aggiornaSelectPersonale();
+            aggiornaSelectCommesse();
+            aggiornaSelectScheda();
+            aggiornaFiltriClientiCommesse();
+            if (clienteSelezionato) {
+                aggiornaSchedaCliente(clienteSelezionato);
+            }
+        }
+
+        // ================================================================
+        //   BACKUP / RESTORE
+        // ================================================================
+        function esportaBackup() {
+            const dataStr = JSON.stringify(dati, null, 2);
+            const blob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vivaio_backup_${oggi()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            dati.ultimo_backup = new Date().toISOString();
+            localStorage.setItem('vivaio_dati_v13', JSON.stringify(dati));
+            document.getElementById('ultimo-backup').textContent = formatDateDisplay(oggi()) + ' ' + new Date().toTimeString().slice(0,5);
+            alert('✅ Backup esportato con successo!');
+        }
+
+        function importaBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (!importedData.clienti || !importedData.commesse) {
+                        alert('❌ File non valido: mancano i dati necessari.');
+                        return;
+                    }
+                    
+                    const confirmMsg = `⚠️ ATTENZIONE: Importando questo backup, tutti i dati attuali verranno SOSTITUITI!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Dati da importare:
+👥 Personale: ${importedData.personale?.length || 0}
+🔧 Attrezzature: ${importedData.attrezzature?.length || 0}
+📇 Clienti: ${importedData.clienti?.length || 0}
+📍 Sopralluoghi: ${importedData.sopralluoghi?.length || 0}
+📄 Preventivi: ${importedData.preventivi?.length || 0}
+📋 Commesse: ${importedData.commesse?.length || 0}
+📋 Schede: ${importedData.schede?.length || 0}
+
+Procedere con il ripristino?`;
+                    
+                    if (!confirm(confirmMsg)) return;
+                    
+                    dati = importedData;
+                    if (!dati.versione) dati.versione = '1.1';
+                    dati.ultimo_backup = new Date().toISOString();
+                    
+                    salvaDati();
+                    document.getElementById('ultimo-backup').textContent = formatDateDisplay(oggi()) + ' ' + new Date().toTimeString().slice(0,5);
+                    alert('✅ Backup importato con successo!');
+                    
+                } catch (error) {
+                    alert('❌ Errore durante l\'importazione: file non valido o corrotto.');
+                    console.error(error);
+                }
+            };
+            reader.readAsText(file);
+            
+            event.target.value = '';
+        }
+
+        function mostraInfoBackup() {
+            document.getElementById('modal-info-backup').classList.add('active');
+        }
+
+        // ================================================================
+        //   UTILITY
+        // ================================================================
+        function idUnivoco() { return Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+        function oggi() { return new Date().toISOString().split('T')[0]; }
+        function oraCorrente() { return new Date().toTimeString().slice(0, 5); }
+
+        function getClienteDettagli(nome) {
+            const c = dati.clienti.find(x => x.nome === nome);
+            return c || { id: '', indirizzo: '', telefono: '', email: '', note: '' };
+        }
+
+        function getTipoLabel(tipo) {
+            return TIPOLOGIE_LABEL[tipo] || tipo || 'N/A';
+        }
+
+        function getTipoBadge(tipo) {
+            const label = getTipoLabel(tipo);
+            return `<span class="badge-tipo ${tipo}">${label}</span>`;
+        }
+
+        function formatDate(d) {
+            if (!d) return 'Data non impostata';
+            const date = new Date(d + 'T00:00:00');
+            return date.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function formatDateDisplay(d) {
+            if (!d) return 'Data non impostata';
+            const date = new Date(d + 'T00:00:00');
+            return date.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+
+        function ordinaPerNome(arr) {
+            return arr.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+        }
+
+        function creaRigaTesto(testo, colspan = 5) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = colspan;
+            td.textContent = testo;
+            td.style.textAlign = 'center';
+            td.style.color = '#888';
+            td.style.padding = '20px 0';
+            tr.appendChild(td);
+            return tr;
+        }
+
+        function isScaduto(data) {
+            if (!data) return false;
+            return data < oggi();
+        }
+
+        // ================================================================
+        //   RENDER
+        // ================================================================
+        function renderTabella(idTabella, array, campi, azioniFn, colspanVuoto = 5) {
+            const tbody = document.getElementById(idTabella);
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (!array || array.length === 0) {
+                tbody.appendChild(creaRigaTesto('Nessun elemento presente', colspanVuoto));
+                return;
+            }
+            array.forEach((item) => {
+                const tr = document.createElement('tr');
+                campi.forEach(campo => {
+                    const td = document.createElement('td');
+                    let valore = item[campo] || '';
+                    if (campo === 'stato') {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge';
+                        const mappa = {
+                            'Disponibile': 'disponibile', 'In uso': 'inuso', 'Manutenzione': 'manutenzione',
+                            'Completata': 'completata', 'In corso': 'incorso',
+                            'Approvato': 'approvato', 'Inviato': 'inviato', 'Bozza': 'bozza', 'Rifiutato': 'rifiutato'
+                        };
+                        if (mappa[valore]) badge.className += ' ' + mappa[valore];
+                        badge.textContent = valore || 'N/A';
+                        td.appendChild(badge);
+                    } else if (campo === 'importo' && valore) {
+                        td.textContent = '€ ' + parseFloat(valore).toFixed(2);
+                        td.style.fontWeight = 'bold';
+                    } else if (campo === 'tipo') {
+                        td.innerHTML = getTipoBadge(valore);
+                    } else if (campo === 'ricorrente' && valore) {
+                        td.innerHTML = `<span class="badge ricorrente">🔄 ${valore}</span>`;
+                    } else {
+                        td.textContent = valore;
+                    }
+                    tr.appendChild(td);
+                });
+                if (azioniFn) {
+                    const tdAzioni = document.createElement('td');
+                    tdAzioni.innerHTML = azioniFn(item);
+                    tr.appendChild(tdAzioni);
+                }
+                tbody.appendChild(tr);
+            });
+        }
+
+        // ================================================================
+        //   SELECT
+        // ================================================================
+        function aggiornaSelectClienti() {
+            const ids = ['cliente-sopralluogo', 'cliente-preventivo', 'cliente-commessa'];
+            const clientiOrd = ordinaPerNome([...dati.clienti]);
+            ids.forEach(id => {
+                const select = document.getElementById(id);
+                if (!select) return;
+                const val = select.value;
+                select.innerHTML = '<option value="">Seleziona cliente*</option>';
+                clientiOrd.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.nome;
+                    opt.textContent = `${c.nome}${c.indirizzo ? ' - ' + c.indirizzo : ''}${c.telefono ? ' - ' + c.telefono : ''}`;
+                    select.appendChild(opt);
+                });
+                if (val && [...select.options].some(o => o.value === val)) select.value = val;
+            });
+        }
+
+        function aggiornaFiltriClientiCommesse() {
+            const select = document.getElementById('filtro-cliente-commessa');
+            if (!select) return;
+            const val = select.value;
+            select.innerHTML = '<option value="">Tutti i clienti</option>';
+            const clientiOrd = ordinaPerNome([...dati.clienti]);
+            clientiOrd.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.nome;
+                opt.textContent = c.nome;
+                select.appendChild(opt);
+            });
+            if (val && [...select.options].some(o => o.value === val)) select.value = val;
+        }
+
+        function aggiornaSelectAttrezzature() {
+            const select = document.getElementById('attrezzatura-commessa');
+            if (!select) return;
+            const val = select.value;
+            select.innerHTML = '<option value="">Seleziona attrezzatura</option>';
+            dati.attrezzature.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.nome;
+                opt.textContent = `${a.nome} (x${a.quantita}) - ${a.stato}`;
+                if (a.stato === 'Disponibile' && parseInt(a.quantita) > 0) opt.style.fontWeight = 'bold';
+                select.appendChild(opt);
+            });
+            if (val && [...select.options].some(o => o.value === val)) select.value = val;
+        }
+
+        function aggiornaSelectPersonale() {
+            const select = document.getElementById('personale-commessa');
+            if (!select) return;
+            const val = select.value;
+            select.innerHTML = '<option value="">Seleziona personale</option>';
+            const personaleOrd = ordinaPerNome([...dati.personale]);
+            personaleOrd.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.nome;
+                opt.textContent = p.nome + (p.telefono ? ' - ' + p.telefono : '');
+                select.appendChild(opt);
+            });
+            if (val && [...select.options].some(o => o.value === val)) select.value = val;
+        }
+
+        function aggiornaSelectCommesse() {
+            const select = document.getElementById('scheda-commessa');
+            if (!select) return;
+            const val = select.value;
+            select.innerHTML = '<option value="">Seleziona una commessa</option>';
+            const commesseFiltrate = dati.commesse.filter(c => 
+                c.stato !== 'Completata' && !c.generato_da
+            );
+            commesseFiltrate.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                const tipoLabel = getTipoLabel(c.tipo);
+                opt.textContent = `${c.cliente} - ${c.descrizione} (${tipoLabel}) - ${c.data || 'Data non impostata'}${c.ricorrente ? ' 🔄' : ''}`;
+                select.appendChild(opt);
+            });
+            if (val && [...select.options].some(o => o.value === val)) select.value = val;
+        }
+
+        function aggiornaSelectScheda() {
+            const selectA = document.getElementById('scheda-attrezzature-select');
+            if (selectA) {
+                const val = selectA.value;
+                selectA.innerHTML = '<option value="">Aggiungi attrezzatura...</option>';
+                dati.attrezzature.forEach(a => {
+                    if (!schedaAttrezzature.includes(a.nome)) {
+                        const opt = document.createElement('option');
+                        opt.value = a.nome;
+                        opt.textContent = `${a.nome} (x${a.quantita})`;
+                        selectA.appendChild(opt);
+                    }
+                });
+                if (val && [...selectA.options].some(o => o.value === val)) selectA.value = val;
+            }
+            const selectP = document.getElementById('scheda-personale-select');
+            if (selectP) {
+                const val = selectP.value;
+                selectP.innerHTML = '<option value="">Aggiungi personale...</option>';
+                dati.personale.forEach(p => {
+                    if (!schedaPersonale.includes(p.nome)) {
+                        const opt = document.createElement('option');
+                        opt.value = p.nome;
+                        opt.textContent = p.nome + (p.telefono ? ' - ' + p.telefono : '');
+                        selectP.appendChild(opt);
+                    }
+                });
+                if (val && [...selectP.options].some(o => o.value === val)) selectP.value = val;
+            }
+        }
+
+        // ================================================================
+        //   AGENDA
+        // ================================================================
+        function generaEventiAgenda() {
+            const eventi = [];
+            dati.sopralluoghi.forEach(s => {
+                if (s.data) eventi.push({
+                    id: s.id + '_sopralluogo',
+                    data: s.data,
+                    ora: s.ora || '',
+                    titolo: '📍 ' + s.cliente,
+                    descrizione: s.note || '',
+                    tipo: 'sopralluogo',
+                    scaduto: isScaduto(s.data) && s.stato !== 'Completata'
+                });
+            });
+            dati.preventivi.forEach(p => {
+                if (p.data) eventi.push({
+                    id: p.id + '_preventivo',
+                    data: p.data,
+                    ora: '',
+                    titolo: '📄 ' + p.cliente,
+                    descrizione: p.oggetto + ' - €' + parseFloat(p.importo || 0).toFixed(2),
+                    tipo: 'preventivo',
+                    scaduto: isScaduto(p.data) && p.stato !== 'Approvato'
+                });
+            });
+            dati.commesse.forEach(c => {
+                if (c.data) {
+                    const tipoEvento = c.ricorrente ? 'ricorrente' : 'commessa';
+                    const scaduto = isScaduto(c.data) && c.stato !== 'Completata';
+                    eventi.push({
+                        id: c.id + '_commessa',
+                        data: c.data,
+                        ora: '',
+                        titolo: '📋 ' + c.cliente + (c.ricorrente ? ' 🔄' : ''),
+                        descrizione: c.descrizione + ' (' + getTipoLabel(c.tipo) + ')' + (c.ricorrente ? ' - ' + c.ricorrente : ''),
+                        tipo: tipoEvento,
+                        scaduto: scaduto,
+                        stato: c.stato,
+                        cliente: c.cliente,
+                        attrezzatura: c.attrezzatura,
+                        personale: c.personale
+                    });
+                }
+            });
+            dati.agenda.forEach(a => {
+                if (!a.id.includes('_sopralluogo') && !a.id.includes('_preventivo') && !a.id.includes('_commessa')) {
+                    eventi.push({
+                        id: a.id,
+                        data: a.data,
+                        ora: a.ora || '',
+                        titolo: a.titolo || '📌 Evento',
+                        descrizione: a.descrizione || '',
+                        tipo: 'manuale',
+                        scaduto: isScaduto(a.data)
+                    });
+                }
+            });
+            return eventi;
+        }
+
+        function renderAgenda() {
+            const container = document.getElementById('agenda-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const eventi = generaEventiAgenda();
+            const dataCorrente = new Date(agendaData);
+            const anno = dataCorrente.getFullYear();
+            const mese = dataCorrente.getMonth();
+            const oggiStr = oggi();
+
+            if (agendaVista === 'settimana') {
+                const giorno = dataCorrente.getDay();
+                const diff = (giorno === 0 ? 6 : giorno - 1);
+                const lunedi = new Date(dataCorrente);
+                lunedi.setDate(lunedi.getDate() - diff);
+                const giorni = [];
+                for (let i = 0; i < 7; i++) {
+                    const d = new Date(lunedi);
+                    d.setDate(d.getDate() + i);
+                    giorni.push(d);
+                }
+                document.getElementById('agenda-titolo').textContent =
+                    `Settimana ${lunedi.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })} - ${giorni[6].toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+
+                let html = '<div class="agenda-grid">';
+                html += '<div class="header">Orario</div>';
+                const nomi = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+                giorni.forEach((d, i) => {
+                    const isWeekend = i >= 5;
+                    const isOggi = d.toISOString().split('T')[0] === oggiStr;
+                    const dataStr = d.toISOString().split('T')[0];
+                    html += `<div class="header${isWeekend ? ' weekend' : ''}" onclick="apriDettagliGiorno('${dataStr}')">${nomi[i]} ${d.getDate()}</div>`;
+                });
+                for (let ora = 7; ora <= 19; ora++) {
+                    const oraStr = String(ora).padStart(2, '0') + ':00';
+                    html += `<div class="cell alt" style="font-weight:600;font-size:10px;text-align:center;background:#f4f7f6;">${oraStr}</div>`;
+                    giorni.forEach((d) => {
+                        const dataStr = d.toISOString().split('T')[0];
+                        const isOggi = dataStr === oggiStr;
+                        const eventiGiorno = eventi.filter(e => e.data === dataStr);
+                        html += `<div class="cell${isOggi ? ' oggi' : ''}" onclick="apriDettagliGiorno('${dataStr}')">`;
+                        html += `<div class="numero-giorno">${d.getDate()}</div>`;
+                        eventiGiorno.slice(0, 3).forEach(e => {
+                            const classeScaduto = e.scaduto ? ' scaduto' : '';
+                            html += `<div class="evento ${e.tipo}${classeScaduto}" title="${e.titolo} - ${e.descrizione}">${e.titolo}</div>`;
+                        });
+                        if (eventiGiorno.length > 3) {
+                            html += `<div style="font-size:8px;color:#888;">+${eventiGiorno.length - 3}</div>`;
+                        }
+                        html += '</div>';
+                    });
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            } else {
+                document.getElementById('agenda-titolo').textContent =
+                    dataCorrente.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+                const primoMese = new Date(anno, mese, 1);
+                const ultimoMese = new Date(anno, mese + 1, 0);
+                const giorniMese = ultimoMese.getDate();
+                const primoGiorno = primoMese.getDay();
+                let html = '<div class="agenda-mese">';
+                const nomi = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+                nomi.forEach((n, i) => {
+                    const isWeekend = i === 0 || i === 6;
+                    html += `<div class="header${isWeekend ? ' weekend' : ''}">${n}</div>`;
+                });
+                for (let i = 0; i < primoGiorno; i++) {
+                    html += `<div class="cell alt"><div class="vuoto">·</div></div>`;
+                }
+                for (let giorno = 1; giorno <= giorniMese; giorno++) {
+                    const dataStr = `${anno}-${String(mese+1).padStart(2,'0')}-${String(giorno).padStart(2,'0')}`;
+                    const isOggi = dataStr === oggiStr;
+                    const eventiGiorno = eventi.filter(e => e.data === dataStr);
+                    const isWeekend = (primoGiorno + giorno - 1) % 7 === 0 || (primoGiorno + giorno - 1) % 7 === 6;
+                    html += `<div class="cell${isOggi ? ' oggi' : ''}${isWeekend ? ' alt' : ''}" onclick="apriDettagliGiorno('${dataStr}')">`;
+                    html += `<div class="numero">${giorno}</div>`;
+                    eventiGiorno.slice(0, 3).forEach(e => {
+                        const classeScaduto = e.scaduto ? ' scaduto' : '';
+                        html += `<div class="evento ${e.tipo}${classeScaduto}" title="${e.titolo} - ${e.descrizione}">${e.titolo}</div>`;
+                    });
+                    if (eventiGiorno.length > 3) {
+                        html += `<div style="font-size:7px;color:#888;">+${eventiGiorno.length - 3}</div>`;
+                    }
+                    html += '</div>';
+                }
+                const giorniTotali = primoGiorno + giorniMese;
+                const celleMancanti = (7 - (giorniTotali % 7)) % 7;
+                for (let i = 0; i < celleMancanti; i++) {
+                    html += `<div class="cell alt"><div class="vuoto">·</div></div>`;
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            }
+        }
+
+        function apriDettagliGiorno(data) {
+            const eventi = generaEventiAgenda();
+            const eventiGiorno = eventi.filter(e => e.data === data);
+            
+            if (eventiGiorno.length === 0) {
+                alert(`📅 Nessun evento per il ${formatDateDisplay(data)}`);
+                return;
+            }
+
+            const titolo = `📅 ${formatDateDisplay(data)}`;
+            document.getElementById('modal-agenda-titolo').textContent = titolo;
+            
+            let html = '';
+            eventiGiorno.forEach(e => {
+                const scaduto = e.scaduto ? ' ⚠️ SCADUTO' : '';
+                html += `
+                    <div class="dettaglio-item">
+                        <div><strong>${e.titolo}</strong> ${scaduto}</div>
+                        <div style="font-size:12px; color:#666;">${e.descrizione}</div>
+                        ${e.ora ? `<div style="font-size:11px; color:#888;">🕐 ${e.ora}</div>` : ''}
+                        ${e.cliente ? `<div style="font-size:11px; color:#888;">👤 ${e.cliente}</div>` : ''}
+                        ${e.personale ? `<div style="font-size:11px; color:#888;">👥 ${e.personale}</div>` : ''}
+                        ${e.attrezzatura && e.attrezzatura !== 'Nessuna' ? `<div style="font-size:11px; color:#888;">🔧 ${e.attrezzatura}</div>` : ''}
+                        ${e.stato ? `<div style="font-size:11px; color:#888;">📊 ${e.stato}</div>` : ''}
+                    </div>
+                `;
+            });
+            
+            document.getElementById('modal-agenda-contenuto').innerHTML = html;
+            document.getElementById('modal-agenda-dettagli').classList.add('active');
+        }
+
+        function chiudiModalAgenda() {
+            document.getElementById('modal-agenda-dettagli').classList.remove('active');
+        }
+
+        function cambiaVista(vista) {
+            agendaVista = vista;
+            document.getElementById('btn-settimana').className = vista === 'settimana' ? 'active-view' : '';
+            document.getElementById('btn-mese').className = vista === 'mese' ? 'active-view' : '';
+            renderAgenda();
+        }
+
+        function navAgenda(delta) {
+            if (agendaVista === 'settimana') {
+                agendaData.setDate(agendaData.getDate() + delta * 7);
+            } else {
+                agendaData.setMonth(agendaData.getMonth() + delta);
+            }
+            renderAgenda();
+        }
+
+        function resetAgenda() {
+            agendaData = new Date();
+            renderAgenda();
+        }
+
+        // ================================================================
+        //   RICORRENZA
+        // ================================================================
+        function toggleRicorrente() {
+            const checked = document.getElementById('ricorrente-check').checked;
+            document.getElementById('ricorrente-options').style.display = checked ? 'flex' : 'none';
+            document.getElementById('btn-genera-ricorrente').style.display = checked ? 'inline-block' : 'none';
+            if (!checked) {
+                document.getElementById('anteprima-ricorrenza').style.display = 'none';
+            }
+        }
+
+        function calcolaDataRicorrenza(dataBase, cadenza, intervallo, ripetizione) {
+            if (!dataBase) return null;
+            const d = new Date(dataBase + 'T00:00:00');
+            switch (cadenza) {
+                case 'giornaliera':
+                    d.setDate(d.getDate() + intervallo * ripetizione);
+                    break;
+                case 'settimanale':
+                    d.setDate(d.getDate() + intervallo * 7 * ripetizione);
+                    break;
+                case 'mensile':
+                    d.setMonth(d.getMonth() + intervallo * ripetizione);
+                    break;
+                case 'annuale':
+                    d.setFullYear(d.getFullYear() + intervallo * ripetizione);
+                    break;
+                default:
+                    return dataBase;
+            }
+            return d.toISOString().split('T')[0];
+        }
+
+        function anteprimaRicorrenza() {
+            const dataBase = document.getElementById('data-commessa').value;
+            if (!dataBase) {
+                alert('⚠️ Seleziona prima una data di inizio!');
+                return;
+            }
+
+            const cadenza = document.getElementById('ricorrente-cadenza').value;
+            const intervallo = parseInt(document.getElementById('ricorrente-intervallo').value) || 1;
+            const ripetizioni = parseInt(document.getElementById('ricorrente-ripetizioni').value) || 12;
+
+            const container = document.getElementById('anteprima-ricorrenza');
+            const dateContainer = document.getElementById('anteprima-date');
+            const infoContainer = document.getElementById('anteprima-info');
+
+            container.style.display = 'block';
+            dateContainer.innerHTML = '';
+
+            const dateLabels = {
+                'giornaliera': 'giorni',
+                'settimanale': 'settimane',
+                'mensile': 'mesi',
+                'annuale': 'anni'
+            };
+
+            let dates = [];
+            const maxShow = Math.min(ripetizioni, 20);
+            for (let i = 0; i < maxShow; i++) {
+                const data = calcolaDataRicorrenza(dataBase, cadenza, intervallo, i);
+                if (data) dates.push(data);
+            }
+
+            dates.forEach(d => {
+                const span = document.createElement('span');
+                span.className = 'date-tag';
+                span.textContent = formatDateDisplay(d);
+                dateContainer.appendChild(span);
+            });
+
+            if (ripetizioni > 20) {
+                const span = document.createElement('span');
+                span.className = 'date-tag';
+                span.style.cssText = 'background:#f8f9fa; color:#888;';
+                span.textContent = `... e altre ${ripetizioni - 20} date`;
+                dateContainer.appendChild(span);
+            }
+
+            const nomeCadenza = {
+                'giornaliera': 'giornaliera',
+                'settimanale': 'settimanale',
+                'mensile': 'mensile',
+                'annuale': 'annuale'
+            };
+
+            infoContainer.textContent = `🔹 Ogni ${intervallo} ${dateLabels[cadenza]} per ${ripetizioni} volte (${ripetizioni} commesse generate)`;
+        }
+
+        function generaRicorrenza() {
+            const cliente = document.getElementById('cliente-commessa').value;
+            const tipo = document.getElementById('tipo-commessa').value;
+            const descrizione = document.getElementById('descrizione-commessa').value.trim();
+            const dataBase = document.getElementById('data-commessa').value;
+            const attrezzatura = document.getElementById('attrezzatura-commessa').value;
+            const personale = document.getElementById('personale-commessa').value;
+            const isRicorrente = document.getElementById('ricorrente-check').checked;
+
+            if (!cliente || !tipo || !descrizione) {
+                return alert('⚠️ Compila i campi obbligatori (cliente, tipologia, descrizione)');
+            }
+
+            if (!isRicorrente) {
+                return alert('⚠️ Attiva la checkbox "Attività ricorrente" prima di generare');
+            }
+
+            if (!dataBase) {
+                return alert('⚠️ Per le attività ricorrenti, la data di inizio è obbligatoria.');
+            }
+
+            const cadenza = document.getElementById('ricorrente-cadenza').value;
+            const intervallo = parseInt(document.getElementById('ricorrente-intervallo').value) || 1;
+            const ripetizioni = parseInt(document.getElementById('ricorrente-ripetizioni').value) || 12;
+
+            if (attrezzatura) {
+                const a = dati.attrezzature.find(item => item.nome === attrezzatura);
+                if (a && a.stato !== 'Disponibile' && !confirm(`"${attrezzatura}" non disponibile. Procedere?`)) return;
+                if (a && parseInt(a.quantita) <= 0 && !confirm(`"${attrezzatura}" esaurita. Procedere?`)) return;
+            }
+
+            const labelCadenza = {
+                'giornaliera': 'giornaliera',
+                'settimanale': 'settimanale',
+                'mensile': 'mensile',
+                'annuale': 'annuale'
+            };
+
+            const confirmMsg = `📋 CONFERMA GENERAZIONE RICORRENZA
+━━━━━━━━━━━━━━━━━
+👤 Cliente: ${cliente}
+📝 Descrizione: ${descrizione}
+🏷️ Tipologia: ${getTipoLabel(tipo)}
+📅 Data inizio: ${formatDateDisplay(dataBase)}
+🔄 Cadenza: ${labelCadenza[cadenza]} (ogni ${intervallo})
+🔢 Ripetizioni: ${ripetizioni}
+📊 Totale commesse: ${ripetizioni}
+
+Procedere con la generazione?`;
+
+            if (!confirm(confirmMsg)) return;
+
+            const commessaBase = {
+                id: idUnivoco(),
+                cliente,
+                tipo,
+                descrizione,
+                data: dataBase,
+                attrezzatura: attrezzatura || 'Nessuna',
+                personale: personale || 'Non assegnato',
+                stato: 'In corso',
+                ricorrente: `${labelCadenza[cadenza]} (ogni ${intervallo})`,
+                generato_da: null,
+                ripetizione: 0
+            };
+
+            dati.commesse.push(commessaBase);
+
+            let generate = [];
+            for (let i = 1; i < ripetizioni; i++) {
+                const data = calcolaDataRicorrenza(dataBase, cadenza, intervallo, i);
+                if (!data || data > '2100-01-01') break;
+                generate.push({
+                    ...commessaBase,
+                    id: idUnivoco(),
+                    data: data,
+                    ricorrente: `${labelCadenza[cadenza]} (ogni ${intervallo})`,
+                    generato_da: commessaBase.id,
+                    ripetizione: i
+                });
+            }
+
+            dati.commesse.push(...generate);
+            salvaDati();
+
+            document.getElementById('ricorrente-check').checked = false;
+            document.getElementById('ricorrente-options').style.display = 'none';
+            document.getElementById('btn-genera-ricorrente').style.display = 'none';
+            document.getElementById('anteprima-ricorrenza').style.display = 'none';
+            document.getElementById('descrizione-commessa').value = '';
+            document.getElementById('data-commessa').value = '';
+            document.getElementById('tipo-commessa').value = '';
+
+            alert(`✅ Generazione completata!\nSono state create ${generate.length + 1} commesse (${generate.length} ricorrenti + 1 base).`);
+        }
+
+        // ================================================================
+        //   CONVERTI PREVENTIVO IN COMMESSA
+        // ================================================================
+        function apriConvertiPreventivo(id) {
+            const preventivo = dati.preventivi.find(p => p.id === id);
+            if (!preventivo) return;
+            if (preventivo.stato !== 'Approvato') {
+                alert('⚠️ Solo i preventivi approvati possono essere convertiti in commesse.');
+                return;
+            }
+
+            convertiPreventivoId = id;
+
+            // Precompila il form di conversione
+            const cliente = preventivo.cliente;
+            const tipo = preventivo.tipo || '';
+            const descrizione = preventivo.oggetto || '';
+            const data = preventivo.data || '';
+
+            let tipoOptions = '';
+            TIPOLOGIE.forEach(t => {
+                const selected = t === tipo ? 'selected' : '';
+                tipoOptions += `<option value="${t}" ${selected}>${TIPOLOGIE_LABEL[t]}</option>`;
+            });
+
+            document.getElementById('modal-converti-contenuto').innerHTML = `
+                <div style="background:#f0ebf8; padding:10px; border-radius:6px; margin-bottom:15px; font-size:13px;">
+                    <strong>📄 Convertendo il preventivo:</strong><br>
+                    Cliente: ${cliente}<br>
+                    Oggetto: ${descrizione}<br>
+                    Data: ${data ? formatDateDisplay(data) : 'Non impostata'}<br>
+                    Tipologia: ${getTipoLabel(tipo)}
+                </div>
+                <div class="form-row">
+                    <label>Cliente*</label>
+                    <input type="text" id="conv-cliente" value="${cliente}" list="clienti-conv-list">
+                    <datalist id="clienti-conv-list">
+                        ${dati.clienti.map(c => `<option value="${c.nome}">`).join('')}
+                    </datalist>
+                </div>
+                <div class="form-row">
+                    <label>Tipologia*</label>
+                    <select id="conv-tipo">${tipoOptions}</select>
+                </div>
+                <div class="form-row">
+                    <label>Descrizione*</label>
+                    <textarea id="conv-descrizione" rows="2" style="flex:2; padding:6px 10px; border:1px solid #ccd9d3; border-radius:6px; font-size:12px; resize:vertical; font-family:inherit;">${descrizione}</textarea>
+                </div>
+                <div class="form-row">
+                    <label>Data (opzionale)</label>
+                    <input type="date" id="conv-data" value="${data}">
+                </div>
+                <div class="form-row">
+                    <label>Attrezzatura</label>
+                    <select id="conv-attrezzatura">
+                        <option value="">Nessuna</option>
+                        ${dati.attrezzature.map(a => 
+                            `<option value="${a.nome}">${a.nome}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Personale</label>
+                    <select id="conv-personale">
+                        <option value="">Non assegnato</option>
+                        ${dati.personale.map(p => 
+                            `<option value="${p.nome}">${p.nome}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Stato</label>
+                    <select id="conv-stato">
+                        <option value="In corso">In corso</option>
+                        <option value="Completata">Completata</option>
+                    </select>
+                </div>
+            `;
+
+            document.getElementById('modal-converti').classList.add('active');
+        }
+
+        function salvaConverti() {
+            const cliente = document.getElementById('conv-cliente').value.trim();
+            const tipo = document.getElementById('conv-tipo').value;
+            const descrizione = document.getElementById('conv-descrizione').value.trim();
+            const data = document.getElementById('conv-data').value;
+            const attrezzatura = document.getElementById('conv-attrezzatura').value;
+            const personale = document.getElementById('conv-personale').value;
+            const stato = document.getElementById('conv-stato').value;
+
+            if (!cliente || !tipo || !descrizione) {
+                return alert('⚠️ Compila i campi obbligatori (cliente, tipologia, descrizione)');
+            }
+
+            // Verifica che il cliente esista
+            const clienteEsiste = dati.clienti.some(c => c.nome === cliente);
+            if (!clienteEsiste) {
+                if (!confirm(`⚠️ Il cliente "${cliente}" non esiste nell'archivio. Vuoi comunque creare la commessa?`)) {
+                    return;
+                }
+            }
+
+            // Crea la commessa
+            dati.commesse.push({
+                id: idUnivoco(),
+                cliente,
+                tipo,
+                descrizione,
+                data: data || '',
+                attrezzatura: attrezzatura || 'Nessuna',
+                personale: personale || 'Non assegnato',
+                stato: stato,
+                ricorrente: null,
+                generato_da: null,
+                ripetizione: null
+            });
+
+            // Aggiorna il preventivo (marchiamolo come convertito)
+            const preventivo = dati.preventivi.find(p => p.id === convertiPreventivoId);
+            if (preventivo) {
+                preventivo.convertito = true;
+                preventivo.convertito_data = oggi();
+            }
+
+            salvaDati();
+            chiudiConverti();
+            alert('✅ Commessa creata con successo dal preventivo!');
+            
+            // Vai alla sezione commesse
+            document.querySelectorAll('.sidebar button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById('commesse').classList.add('active');
+            document.querySelector('[data-section="commesse"]').classList.add('active');
+        }
+
+        function chiudiConverti() {
+            document.getElementById('modal-converti').classList.remove('active');
+            convertiPreventivoId = null;
+        }
+
+        // ================================================================
+        //   DASHBOARD
+        // ================================================================
+        function aggiornaDashboard() {
+            const oggiStr = oggi();
+            
+            document.getElementById('data-oggi-label').textContent = formatDateDisplay(oggiStr);
+
+            const alertContainer = document.getElementById('alert-container');
+            alertContainer.innerHTML = '';
+
+            const commesseScadute = dati.commesse.filter(c => c.data && c.data < oggiStr && c.stato !== 'Completata');
+            if (commesseScadute.length > 0) {
+                alertContainer.innerHTML += `
+                    <div class="alert-box danger">
+                        <span class="icon">⚠️</span>
+                        <span><span class="count">${commesseScadute.length}</span> commesse scadute non completate!</span>
+                        <span style="font-size:11px; margin-left:5px;">${commesseScadute.map(c => `${c.cliente} (${c.descrizione})`).join(', ')}</span>
+                    </div>
+                `;
+            }
+
+            const sopralluoghiScaduti = dati.sopralluoghi.filter(s => s.data < oggiStr);
+            if (sopralluoghiScaduti.length > 0) {
+                alertContainer.innerHTML += `
+                    <div class="alert-box warning">
+                        <span class="icon">📍</span>
+                        <span><span class="count">${sopralluoghiScaduti.length}</span> sopralluoghi scaduti!</span>
+                        <span style="font-size:11px; margin-left:5px;">${sopralluoghiScaduti.map(s => `${s.cliente} (${s.data})`).join(', ')}</span>
+                    </div>
+                `;
+            }
+
+            const preventiviScaduti = dati.preventivi.filter(p => p.data && p.data < oggiStr && p.stato !== 'Approvato' && p.stato !== 'Rifiutato');
+            if (preventiviScaduti.length > 0) {
+                alertContainer.innerHTML += `
+                    <div class="alert-box warning">
+                        <span class="icon">📄</span>
+                        <span><span class="count">${preventiviScaduti.length}</span> preventivi scaduti!</span>
+                        <span style="font-size:11px; margin-left:5px;">${preventiviScaduti.map(p => `${p.cliente} (${p.oggetto})`).join(', ')}</span>
+                    </div>
+                `;
+            }
+
+            if (alertContainer.innerHTML === '') {
+                alertContainer.innerHTML = `<div class="alert-box info"><span class="icon">✅</span><span>Tutto a posto! Nessuna allerta.</span></div>`;
+            }
+
+            const lavoriContainer = document.getElementById('lavori-giornalieri-container');
+            lavoriContainer.innerHTML = '';
+
+            const lavoriOggi = dati.commesse.filter(c => c.data === oggiStr && c.stato !== 'Completata');
+            const sopralluoghiOggi = dati.sopralluoghi.filter(s => s.data === oggiStr);
+
+            if (lavoriOggi.length === 0 && sopralluoghiOggi.length === 0) {
+                lavoriContainer.innerHTML = '<div style="color:#888; padding:10px; text-align:center;">📌 Nessun lavoro programmato per oggi</div>';
+            } else {
+                lavoriOggi.forEach(c => {
+                    const div = document.createElement('div');
+                    div.className = 'lavoro-giornaliero';
+                    div.innerHTML = `
+                        <div class="titolo">📋 ${c.descrizione}</div>
+                        <div class="dettagli">👤 ${c.cliente} | 🏷️ ${getTipoLabel(c.tipo)} | 👥 ${c.personale || 'Non assegnato'}</div>
+                        ${c.attrezzatura && c.attrezzatura !== 'Nessuna' ? `<div class="dettagli">🔧 ${c.attrezzatura}</div>` : ''}
+                    `;
+                    lavoriContainer.appendChild(div);
+                });
+                sopralluoghiOggi.forEach(s => {
+                    const div = document.createElement('div');
+                    div.className = 'lavoro-giornaliero';
+                    div.innerHTML = `
+                        <div class="titolo">📍 Sopralluogo - ${s.cliente}</div>
+                        <div class="dettagli">🕐 ${s.ora || 'Orario non specificato'} | 📝 ${s.note || 'Nessuna nota'}</div>
+                    `;
+                    lavoriContainer.appendChild(div);
+                });
+            }
+        }
+
+        // ================================================================
+        //   ATTIVITA' RECENTI
+        // ================================================================
+        function aggiornaAttivitaRecenti() {
+            const container = document.getElementById('attivita-recenti');
+            if (!container) return;
+            container.innerHTML = '';
+            let eventi = [];
+            dati.sopralluoghi.forEach(s => eventi.push({ data: s.data || '', tipo: '📍 Sopralluogo', desc: `da ${s.cliente}` }));
+            dati.preventivi.forEach(p => eventi.push({ data: p.data || '', tipo: '📄 Preventivo', desc: `per ${p.cliente}: ${p.oggetto}` }));
+            dati.commesse.forEach(c => {
+                const ricorrente = c.ricorrente ? ' 🔄' : '';
+                eventi.push({
+                    data: c.data || '',
+                    tipo: '📋 Commessa' + ricorrente,
+                    desc: `per ${c.cliente}: ${c.descrizione} (${getTipoLabel(c.tipo)})`
+                });
+            });
+            eventi.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+            const recenti = eventi.slice(0, 6);
+            if (recenti.length === 0) {
+                container.innerHTML = '<div style="color:#888;padding:10px;">📌 Nessuna attività</div>';
+            } else {
+                recenti.forEach(e => {
+                    const div = document.createElement('div');
+                    div.style.cssText = 'border-left:3px solid #1e3c2c;padding-left:10px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #edf2f0;';
+                    div.innerHTML = `<div><span style="font-weight:600;color:#1e3c2c;">${e.data || 'Oggi'}</span> <span style="font-size:11px;color:#666;">${e.tipo}</span></div><div style="font-size:12px;">${e.desc}</div>`;
+                    container.appendChild(div);
+                });
+            }
+        }
+
+        // ================================================================
+        //   FILTRI COMMESSE
+        // ================================================================
+        function applicaFiltriCommesse() {
+            const tipoFiltro = document.getElementById('filtro-tipo-commessa').value;
+            const clienteFiltro = document.getElementById('filtro-cliente-commessa').value;
+            const dataFiltro = document.getElementById('filtro-data-commessa').value;
+
+            let commesseFiltrate = dati.commesse;
+
+            if (tipoFiltro) {
+                commesseFiltrate = commesseFiltrate.filter(c => c.tipo === tipoFiltro);
+            }
+            if (clienteFiltro) {
+                commesseFiltrate = commesseFiltrate.filter(c => c.cliente === clienteFiltro);
+            }
+            if (dataFiltro) {
+                commesseFiltrate = commesseFiltrate.filter(c => c.data === dataFiltro);
+            }
+
+            const commesseConDettagli = commesseFiltrate.map(c => {
+                const cl = getClienteDettagli(c.cliente);
+                return { ...c, indirizzo: cl.indirizzo, telefono: cl.telefono, tipoLabel: getTipoLabel(c.tipo) };
+            });
+
+            renderTabella('tabella-commesse', commesseConDettagli, ['cliente', 'indirizzo', 'telefono', 'tipo',
+                    'descrizione', 'data', 'attrezzatura', 'personale', 'stato', 'ricorrente'
+                ],
+                (item) => `
+                    <button class="btn btn-small" onclick="apriModificaCommessa('${item.id}')">✏️</button>
+                    <button class="btn btn-small" onclick="toggleStatoCommessa('${item.id}')">✓</button>
+                    <button class="btn btn-small btn-danger" onclick="eliminaCommesse('${item.id}')">🗑</button>
+                `, 11);
+        }
+
+        function resetFiltriCommesse() {
+            document.getElementById('filtro-tipo-commessa').value = '';
+            document.getElementById('filtro-cliente-commessa').value = '';
+            document.getElementById('filtro-data-commessa').value = '';
+            applicaFiltriCommesse();
+        }
+
+        // ================================================================
+        //   SCHEDA CLIENTE
+        // ================================================================
+        function filtraClientiScheda() {
+            aggiornaListaClientiScheda();
+        }
+
+        function aggiornaListaClientiScheda() {
+            const container = document.getElementById('lista-clienti-scheda');
+            const search = document.getElementById('ricerca-cliente-scheda').value.toLowerCase().trim();
+
+            let clientiFiltrati = dati.clienti;
+            if (search) {
+                clientiFiltrati = dati.clienti.filter(c =>
+                    c.nome.toLowerCase().includes(search) ||
+                    (c.telefono && c.telefono.includes(search)) ||
+                    (c.indirizzo && c.indirizzo.toLowerCase().includes(search))
+                );
+            }
+
+            document.getElementById('risultati-count').textContent = `${clientiFiltrati.length} clienti trovati`;
+
+            if (clientiFiltrati.length === 0) {
+                container.innerHTML = `<div style="color:#888; padding:10px; text-align:center;">Nessun cliente trovato</div>`;
+                return;
+            }
+
+            let html = '';
+            clientiFiltrati.forEach(c => {
+                const isSelected = clienteSelezionato && clienteSelezionato.id === c.id;
+                html += `
+                    <div onclick="selezionaClienteScheda('${c.id}')" style="
+                        padding: 8px 12px;
+                        margin: 2px 0;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        background: ${isSelected ? '#1e3c2c' : 'transparent'};
+                        color: ${isSelected ? 'white' : '#1e3c2c'};
+                        border: 1px solid ${isSelected ? '#1e3c2c' : '#eaf1ed'};
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        transition: 0.2s;
+                    " onmouseover="this.style.background='${isSelected ? '#2a5a3e' : '#eaf1ed'}'" onmouseout="this.style.background='${isSelected ? '#1e3c2c' : 'transparent'}'">
+                        <span><strong>${c.nome}</strong> ${c.telefono ? '📞 ' + c.telefono : ''}</span>
+                        <span style="font-size:11px; color:${isSelected ? '#ddd' : '#888'};">${c.indirizzo || ''}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function selezionaClienteScheda(id) {
+            const cliente = dati.clienti.find(c => c.id === id);
+            if (!cliente) return;
+            clienteSelezionato = cliente;
+            clienteSelezionatoId = id;
+            aggiornaSchedaCliente(cliente);
+            aggiornaListaClientiScheda();
+            document.getElementById('ricerca-cliente-scheda').value = cliente.nome;
+        }
+
+        function selezionaClienteSchedaById() {
+            const id = clienteSelezionatoId;
+            if (!id) {
+                const selected = document.querySelector('#lista-clienti-scheda div[style*="background: #1e3c2c"]');
+                if (selected) {
+                    const allDivs = document.querySelectorAll('#lista-clienti-scheda div');
+                    for (let div of allDivs) {
+                        if (div.style.background === '#1e3c2c' || div.style.background === 'rgb(30, 60, 44)') {
+                            const onclick = div.getAttribute('onclick');
+                            if (onclick) {
+                                const match = onclick.match(/'([^']+)'/);
+                                if (match) {
+                                    selezionaClienteScheda(match[1]);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+                alert('⚠️ Seleziona prima un cliente dalla lista');
+                return;
+            }
+            selezionaClienteScheda(id);
+        }
+
+        function aggiornaSchedaCliente(cliente) {
+            if (!cliente) return;
+
+            document.getElementById('sc-nome').textContent = cliente.nome;
+            document.getElementById('sc-indirizzo').textContent = cliente.indirizzo || '-';
+            document.getElementById('sc-telefono').textContent = cliente.telefono || '-';
+            document.getElementById('sc-email').textContent = cliente.email || '-';
+            document.getElementById('sc-note').textContent = cliente.note || '-';
+
+            const sopralluoghi = dati.sopralluoghi.filter(s => s.cliente === cliente.nome);
+            const preventivi = dati.preventivi.filter(p => p.cliente === cliente.nome);
+            const commesse = dati.commesse.filter(c => c.cliente === cliente.nome);
+            const commesseAttive = commesse.filter(c => c.stato !== 'Completata');
+
+            document.getElementById('sc-tot-sopralluoghi').textContent = sopralluoghi.length;
+            document.getElementById('sc-tot-preventivi').textContent = preventivi.length;
+            document.getElementById('sc-tot-commesse').textContent = commesse.length;
+            document.getElementById('sc-tot-commesse-attive').textContent = commesseAttive.length;
+
+            const storico = document.getElementById('sc-storico');
+            storico.innerHTML = '';
+
+            let eventi = [];
+            sopralluoghi.forEach(s => {
+                eventi.push({ data: s.data || '9999-99-99', tipo: '📍 Sopralluogo', desc: s.note || '',
+                dettaglio: s.ora ? `Ora: ${s.ora}` : '' });
+            });
+            preventivi.forEach(p => {
+                eventi.push({ data: p.data || '9999-99-99', tipo: '📄 Preventivo', desc: p.oggetto || '',
+                    dettaglio: `€${(p.importo || 0).toFixed(2)} - ${p.stato || 'Bozza'}` });
+            });
+            commesse.forEach(c => {
+                const ricorrente = c.ricorrente ? ' 🔄' : '';
+                eventi.push({ data: c.data || '9999-99-99', tipo: '📋 Commessa' + ricorrente, desc: c.descrizione || '',
+                    dettaglio: `${getTipoLabel(c.tipo)} - ${c.stato}` });
+            });
+
+            eventi.sort((a, b) => b.data.localeCompare(a.data));
+
+            if (eventi.length === 0) {
+                storico.innerHTML = '<div style="color:#888; padding:10px; text-align:center;">Nessuna attività registrata</div>';
+            } else {
+                eventi.forEach(e => {
+                    const div = document.createElement('div');
+                    div.className = 'storico-item';
+                    div.innerHTML = `
+                        <span class="data">${e.data !== '9999-99-99' ? formatDate(e.data) : 'Data non specificata'}</span>
+                        <span class="desc"><strong>${e.tipo}</strong> ${e.desc}</span>
+                        <span class="tipo" style="color:#666; font-size:10px;">${e.dettaglio}</span>
+                    `;
+                    storico.appendChild(div);
+                });
+            }
+
+            document.getElementById('cliente-scheda-container').className = 'cliente-scheda visible';
+        }
+
+        function inviaWhatsAppCliente() {
+            if (!clienteSelezionato) return alert('Seleziona un cliente');
+            if (!clienteSelezionato.telefono) return alert('Il cliente non ha un numero di telefono');
+
+            const msg = `📇 *SCHEDA CLIENTE VIVAIO*
+━━━━━━━━━━━━━━━━━
+👤 *Nome:* ${clienteSelezionato.nome}
+📍 *Indirizzo:* ${clienteSelezionato.indirizzo || 'N/A'}
+📞 *Telefono:* ${clienteSelezionato.telefono || 'N/A'}
+✉️ *Email:* ${clienteSelezionato.email || 'N/A'}
+📝 *Note:* ${clienteSelezionato.note || 'Nessuna'}
+
+📊 *Statistiche:*
+📍 Sopralluoghi: ${document.getElementById('sc-tot-sopralluoghi').textContent}
+📄 Preventivi: ${document.getElementById('sc-tot-preventivi').textContent}
+📋 Commesse totali: ${document.getElementById('sc-tot-commesse').textContent}
+📋 Commesse attive: ${document.getElementById('sc-tot-commesse-attive').textContent}
+━━━━━━━━━━━━━━━━━
+Inviato da Vivaio Manager`;
+
+            const url =
+                `https://api.whatsapp.com/send?phone=39${clienteSelezionato.telefono.replace(/\s/g, '')}&text=${encodeURIComponent(msg)}`;
+            window.open(url, '_blank');
+        }
+
+        function apriModificaClienteScheda() {
+            if (!clienteSelezionato) return alert('Seleziona un cliente');
+            apriModificaCliente(clienteSelezionato.id);
+        }
+
+        // ================================================================
+        //   CRUD
+        // ================================================================
+
+        function aggiungiPersonale() {
+            const nome = document.getElementById('nome-personale').value.trim();
+            const qualifica = document.getElementById('qualifica-personale').value.trim();
+            const telefono = document.getElementById('telefono-personale').value.trim();
+            if (!nome || !telefono) return alert('Inserisci nome e telefono');
+            dati.personale.push({ id: idUnivoco(), nome, qualifica, telefono });
+            document.getElementById('nome-personale').value = '';
+            document.getElementById('qualifica-personale').value = '';
+            document.getElementById('telefono-personale').value = '';
+            salvaDati();
+        }
+
+        function eliminaPersonale(id) {
+            if (confirm('Eliminare questo dipendente?')) { dati.personale = dati.personale.filter(p => p.id !== id);
+                salvaDati(); }
+        }
+
+        function aggiungiAttrezzatura() {
+            const nome = document.getElementById('nome-attrezzatura').value.trim();
+            const quantita = parseInt(document.getElementById('quantita-attrezzatura').value) || 1;
+            const stato = document.getElementById('stato-attrezzatura').value;
+            if (!nome) return alert('Inserisci un nome');
+            dati.attrezzature.push({ id: idUnivoco(), nome, quantita, stato });
+            document.getElementById('nome-attrezzatura').value = '';
+            document.getElementById('quantita-attrezzatura').value = '1';
+            salvaDati();
+        }
+
+        function modificaAttrezzatura(id) {
+            const item = dati.attrezzature.find(a => a.id === id);
+            if (!item) return;
+            const nuovoStato = prompt('Stato (Disponibile/In uso/Manutenzione):', item.stato);
+            if (nuovoStato && ['Disponibile', 'In uso', 'Manutenzione'].includes(nuovoStato)) {
+                item.stato = nuovoStato;
+                const nuovaQuantita = prompt('Quantità:', item.quantita);
+                if (nuovaQuantita && !isNaN(nuovaQuantita) && parseInt(nuovaQuantita) >= 0) {
+                    item.quantita = parseInt(nuovaQuantita);
+                }
+                salvaDati();
+            }
+        }
+
+        function eliminaAttrezzatura(id) {
+            if (confirm('Eliminare questa attrezzatura?')) { dati.attrezzature = dati.attrezzature.filter(a => a.id !== id);
+                salvaDati(); }
+        }
+
+        function aggiungiCliente() {
+            const nome = document.getElementById('nome-cliente').value.trim();
+            const indirizzo = document.getElementById('indirizzo-cliente').value.trim();
+            const telefono = document.getElementById('telefono-cliente').value.trim();
+            const email = document.getElementById('email-cliente').value.trim();
+            const note = document.getElementById('note-cliente').value.trim();
+            if (!nome) return alert('Inserisci un nome');
+            dati.clienti.push({ id: idUnivoco(), nome, indirizzo, telefono, email, note });
+            document.getElementById('nome-cliente').value = '';
+            document.getElementById('indirizzo-cliente').value = '';
+            document.getElementById('telefono-cliente').value = '';
+            document.getElementById('email-cliente').value = '';
+            document.getElementById('note-cliente').value = '';
+            salvaDati();
+        }
+
+        function apriModificaCliente(id) {
+            const item = dati.clienti.find(c => c.id === id);
+            if (!item) return;
+            modificaTipo = 'cliente';
+            modificaId = id;
+            document.getElementById('modal-titolo').textContent = '✏️ Modifica Cliente';
+            document.getElementById('modal-contenuto').innerHTML = `
+                <div class="form-row">
+                    <label>Nome*</label>
+                    <input type="text" id="mod-nome" value="${item.nome}">
+                </div>
+                <div class="form-row">
+                    <label>Indirizzo</label>
+                    <input type="text" id="mod-indirizzo" value="${item.indirizzo || ''}">
+                </div>
+                <div class="form-row">
+                    <label>Telefono</label>
+                    <input type="tel" id="mod-telefono" value="${item.telefono || ''}">
+                </div>
+                <div class="form-row">
+                    <label>Email</label>
+                    <input type="email" id="mod-email" value="${item.email || ''}">
+                </div>
+                <div class="form-row">
+                    <label>Note</label>
+                    <textarea id="mod-note" rows="2">${item.note || ''}</textarea>
+                </div>
+            `;
+            document.getElementById('modal-modifica').classList.add('active');
+        }
+
+        function eliminaCliente(id) {
+            if (confirm('Eliminare questo cliente? Tutti i dati collegati saranno aggiornati.')) {
+                dati.clienti = dati.clienti.filter(c => c.id !== id);
+                if (clienteSelezionato && clienteSelezionato.id === id) {
+                    clienteSelezionato = null;
+                    clienteSelezionatoId = null;
+                    document.getElementById('cliente-scheda-container').className = 'cliente-scheda';
+                }
+                salvaDati();
+            }
+        }
+
+        function aggiungiSopralluogo() {
+            const cliente = document.getElementById('cliente-sopralluogo').value;
+            const data = document.getElementById('data-sopralluogo').value;
+            const ora = document.getElementById('ora-sopralluogo').value;
+            const note = document.getElementById('note-sopralluogo').value.trim();
+            if (!cliente || !data) return alert('Seleziona cliente e data');
+            dati.sopralluoghi.push({ id: idUnivoco(), cliente, data, ora, note });
+            document.getElementById('data-sopralluogo').value = '';
+            document.getElementById('ora-sopralluogo').value = '';
+            document.getElementById('note-sopralluogo').value = '';
+            salvaDati();
+        }
+
+        function eliminaSopralluogo(id) {
+            if (confirm('Eliminare questo sopralluogo?')) { dati.sopralluoghi = dati.sopralluoghi.filter(s => s.id !== id);
+                salvaDati(); }
+        }
+
+        function aggiungiPreventivo() {
+            const cliente = document.getElementById('cliente-preventivo').value;
+            const data = document.getElementById('data-preventivo').value;
+            const oggetto = document.getElementById('oggetto-preventivo').value.trim();
+            const dettagli = document.getElementById('dettagli-preventivo').value.trim();
+            const importo = parseFloat(document.getElementById('importo-preventivo').value);
+            if (!cliente || !data || !oggetto || isNaN(importo) || importo < 0) return alert('Compila tutti i campi');
+            dati.preventivi.push({ id: idUnivoco(), cliente, data, oggetto, dettagli, importo, stato: 'Bozza' });
+            document.getElementById('data-preventivo').value = '';
+            document.getElementById('oggetto-preventivo').value = '';
+            document.getElementById('dettagli-preventivo').value = '';
+            document.getElementById('importo-preventivo').value = '';
+            salvaDati();
+        }
+
+        function cambiaStatoPreventivo(id) {
+            const item = dati.preventivi.find(p => p.id === id);
+            if (!item) return;
+            const stati = ['Bozza', 'Inviato', 'Approvato', 'Rifiutato'];
+            const idx = stati.indexOf(item.stato);
+            item.stato = stati[(idx + 1) % stati.length];
+            salvaDati();
+        }
+
+        function eliminaPreventivo(id) {
+            if (confirm('Eliminare questo preventivo?')) { dati.preventivi = dati.preventivi.filter(p => p.id !== id);
+                salvaDati(); }
+        }
+
+        function aggiungiCommessa() {
+            const cliente = document.getElementById('cliente-commessa').value;
+            const tipo = document.getElementById('tipo-commessa').value;
+            const descrizione = document.getElementById('descrizione-commessa').value.trim();
+            const data = document.getElementById('data-commessa').value;
+            const attrezzatura = document.getElementById('attrezzatura-commessa').value;
+            const personale = document.getElementById('personale-commessa').value;
+            const isRicorrente = document.getElementById('ricorrente-check').checked;
+
+            if (!cliente || !tipo || !descrizione) {
+                return alert('⚠️ Compila i campi obbligatori (cliente, tipologia, descrizione)');
+            }
+
+            if (isRicorrente) {
+                if (!data) {
+                    return alert('⚠️ Per le attività ricorrenti, la data di inizio è obbligatoria.');
+                }
+                return alert('⚠️ Per le attività ricorrenti usa il pulsante "Genera Ricorrenza"');
+            }
+
+            if (attrezzatura) {
+                const a = dati.attrezzature.find(item => item.nome === attrezzatura);
+                if (a && a.stato !== 'Disponibile' && !confirm(`"${attrezzatura}" non disponibile. Procedere?`)) return;
+                if (a && parseInt(a.quantita) <= 0 && !confirm(`"${attrezzatura}" esaurita. Procedere?`)) return;
+            }
+
+            dati.commesse.push({
+                id: idUnivoco(),
+                cliente,
+                tipo,
+                descrizione,
+                data: data || '',
+                attrezzatura: attrezzatura || 'Nessuna',
+                personale: personale || 'Non assegnato',
+                stato: 'In corso',
+                ricorrente: null,
+                generato_da: null,
+                ripetizione: null
+            });
+
+            document.getElementById('descrizione-commessa').value = '';
+            document.getElementById('data-commessa').value = '';
+            document.getElementById('tipo-commessa').value = '';
+            salvaDati();
+            alert('✅ Commessa aggiunta con successo!');
+        }
+
+        function apriModificaCommessa(id) {
+            const item = dati.commesse.find(c => c.id === id);
+            if (!item) return;
+            modificaTipo = 'commessa';
+            modificaId = id;
+
+            let tipoOptions = '';
+            TIPOLOGIE.forEach(t => {
+                const selected = t === item.tipo ? 'selected' : '';
+                tipoOptions += `<option value="${t}" ${selected}>${TIPOLOGIE_LABEL[t]}</option>`;
+            });
+
+            document.getElementById('modal-titolo').textContent = '✏️ Modifica Commessa';
+            document.getElementById('modal-contenuto').innerHTML = `
+                <div class="form-row">
+                    <label>Cliente*</label>
+                    <input type="text" id="mod-cliente" value="${item.cliente}" list="clienti-list">
+                    <datalist id="clienti-list">
+                        ${dati.clienti.map(c => `<option value="${c.nome}">`).join('')}
+                    </datalist>
+                </div>
+                <div class="form-row">
+                    <label>Tipologia*</label>
+                    <select id="mod-tipo">${tipoOptions}</select>
+                </div>
+                <div class="form-row">
+                    <label>Descrizione*</label>
+                    <textarea id="mod-descrizione" rows="2" style="flex:2; padding:6px 10px; border:1px solid #ccd9d3; border-radius:6px; font-size:12px; resize:vertical; font-family:inherit;">${item.descrizione}</textarea>
+                </div>
+                <div class="form-row">
+                    <label>Data (opzionale)</label>
+                    <input type="date" id="mod-data" value="${item.data || ''}">
+                </div>
+                <div class="form-row">
+                    <label>Attrezzatura</label>
+                    <select id="mod-attrezzatura">
+                        <option value="">Nessuna</option>
+                        ${dati.attrezzature.map(a => 
+                            `<option value="${a.nome}" ${a.nome === item.attrezzatura ? 'selected' : ''}>${a.nome}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Personale</label>
+                    <select id="mod-personale">
+                        <option value="">Non assegnato</option>
+                        ${dati.personale.map(p => 
+                            `<option value="${p.nome}" ${p.nome === item.personale ? 'selected' : ''}>${p.nome}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>Stato</label>
+                    <select id="mod-stato">
+                        <option value="In corso" ${item.stato === 'In corso' ? 'selected' : ''}>In corso</option>
+                        <option value="Completata" ${item.stato === 'Completata' ? 'selected' : ''}>Completata</option>
+                    </select>
+                </div>
+                ${item.ricorrente ? `<div class="form-row"><label>Ricorrenza</label><span style="color:#6f42c1;">🔄 ${item.ricorrente}</span></div>` : ''}
+            `;
+            document.getElementById('modal-modifica').classList.add('active');
+        }
+
+        function salvaModifica() {
+            if (modificaTipo === 'cliente') {
+                const item = dati.clienti.find(c => c.id === modificaId);
+                if (!item) return;
+                const nome = document.getElementById('mod-nome').value.trim();
+                if (!nome) return alert('Il nome è obbligatorio');
+                const vecchioNome = item.nome;
+                item.nome = nome;
+                item.indirizzo = document.getElementById('mod-indirizzo').value.trim();
+                item.telefono = document.getElementById('mod-telefono').value.trim();
+                item.email = document.getElementById('mod-email').value.trim();
+                item.note = document.getElementById('mod-note').value.trim();
+
+                if (vecchioNome !== nome) {
+                    dati.sopralluoghi.forEach(s => { if (s.cliente === vecchioNome) s.cliente = nome; });
+                    dati.preventivi.forEach(p => { if (p.cliente === vecchioNome) p.cliente = nome; });
+                    dati.commesse.forEach(c => { if (c.cliente === vecchioNome) c.cliente = nome; });
+                    dati.schede.forEach(s => { if (s.cliente === vecchioNome) s.cliente = nome; });
+                }
+
+                if (clienteSelezionato && clienteSelezionato.id === modificaId) {
+                    clienteSelezionato = item;
+                }
+
+                salvaDati();
+                chiudiModale();
+            } else if (modificaTipo === 'commessa') {
+                const item = dati.commesse.find(c => c.id === modificaId);
+                if (!item) return;
+                const cliente = document.getElementById('mod-cliente').value.trim();
+                const tipo = document.getElementById('mod-tipo').value;
+                const descrizione = document.getElementById('mod-descrizione').value.trim();
+                const data = document.getElementById('mod-data').value;
+                if (!cliente || !tipo || !descrizione) return alert('Compila i campi obbligatori (cliente, tipologia, descrizione)');
+                item.cliente = cliente;
+                item.tipo = tipo;
+                item.descrizione = descrizione;
+                item.data = data || '';
+                item.attrezzatura = document.getElementById('mod-attrezzatura').value || 'Nessuna';
+                item.personale = document.getElementById('mod-personale').value || 'Non assegnato';
+                item.stato = document.getElementById('mod-stato').value;
+                salvaDati();
+                chiudiModale();
+            }
+        }
+
+        function chiudiModale() {
+            document.getElementById('modal-modifica').classList.remove('active');
+            modificaTipo = null;
+            modificaId = null;
+        }
+
+        document.getElementById('modal-modifica').addEventListener('click', function(e) {
+            if (e.target === this) chiudiModale();
+        });
+
+        function toggleStatoCommessa(id) {
+            const c = dati.commesse.find(x => x.id === id);
+            if (c) { c.stato = c.stato === 'Completata' ? 'In corso' : 'Completata';
+                salvaDati(); }
+        }
+
+        function eliminaCommesse(id) {
+            if (confirm('Eliminare questa commessa?')) {
+                const commessa = dati.commesse.find(c => c.id === id);
+                if (commessa && commessa.ricorrente && !commessa.generato_da) {
+                    if (confirm('Questa è una commessa ricorrente. Eliminare anche tutte le occorrenze generate?')) {
+                        dati.commesse = dati.commesse.filter(c => c.generato_da !== id);
+                    }
+                }
+                dati.commesse = dati.commesse.filter(c => c.id !== id);
+                salvaDati();
+            }
+        }
+
+        // ================================================================
+        //   IMPORT DA ACCESS
+        // ================================================================
+        function mostraImport() {
+            const area = document.getElementById('import-area');
+            area.style.display = area.style.display === 'none' ? 'block' : 'none';
+            document.getElementById('import-text').value = '';
+            document.getElementById('import-stats').textContent = '';
+        }
+
+        function annullaImport() {
+            document.getElementById('import-area').style.display = 'none';
+            document.getElementById('import-text').value = '';
+            document.getElementById('import-stats').textContent = '';
+        }
+
+        function importaClienti() {
+            const text = document.getElementById('import-text').value;
+            if (!text.trim()) return alert('Incolla i dati da importare');
+
+            const lines = text.split('\n').filter(line => line.trim());
+            let importati = 0;
+            let errori = 0;
+            let duplicati = 0;
+
+            lines.forEach((line, idx) => {
+                let parts = line.split('\t');
+                if (parts.length < 2) parts = line.split(';');
+                if (parts.length < 2) parts = line.split(',');
+
+                const nome = (parts[0] || '').trim();
+                if (!nome) { errori++; return; }
+
+                if (dati.clienti.some(c => c.nome === nome)) {
+                    duplicati++;
+                    return;
+                }
+
+                dati.clienti.push({
+                    id: idUnivoco(),
+                    nome: nome,
+                    indirizzo: (parts[1] || '').trim(),
+                    telefono: (parts[2] || '').trim(),
+                    email: (parts[3] || '').trim(),
+                    note: (parts[4] || '').trim()
+                });
+                importati++;
+            });
+
+            document.getElementById('import-stats').textContent =
+                `✅ ${importati} clienti importati, ${duplicati} duplicati, ${errori} errori`;
+            salvaDati();
+
+            if (importati > 0) {
+                setTimeout(() => {
+                    document.getElementById('import-area').style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // ================================================================
+        //   SCHEDE LAVORO
+        // ================================================================
+        function aggiungiAttrezzaturaScheda(select) {
+            const val = select.value;
+            if (!val) return;
+            if (!schedaAttrezzature.includes(val)) {
+                schedaAttrezzature.push(val);
+                aggiornaSchedaUI();
+            }
+            select.value = '';
+            aggiornaSelectScheda();
+        }
+
+        function rimuoviAttrezzaturaScheda(nome) {
+            schedaAttrezzature = schedaAttrezzature.filter(a => a !== nome);
+            aggiornaSchedaUI();
+            aggiornaSelectScheda();
+        }
+
+        function aggiungiPersonaleScheda(select) {
+            const val = select.value;
+            if (!val) return;
+            if (!schedaPersonale.includes(val)) {
+                schedaPersonale.push(val);
+                aggiornaSchedaUI();
+            }
+            select.value = '';
+            aggiornaSelectScheda();
+        }
+
+        function rimuoviPersonaleScheda(nome) {
+            schedaPersonale = schedaPersonale.filter(p => p !== nome);
+            aggiornaSchedaUI();
+            aggiornaSelectScheda();
+        }
+
+        function aggiornaSchedaUI() {
+            const containerA = document.getElementById('scheda-attrezzature-container');
+            if (containerA) {
+                let html = '';
+                schedaAttrezzature.forEach(a => {
+                    html += `<span class="tag">🔧 ${a} <span class="remove" onclick="rimuoviAttrezzaturaScheda('${a}')">×</span></span>`;
+                });
+                html += '<select id="scheda-attrezzature-select" onchange="aggiungiAttrezzaturaScheda(this)"><option value="">Aggiungi attrezzatura...</option></select>';
+                containerA.innerHTML = html;
+                aggiornaSelectScheda();
+            }
+            const containerP = document.getElementById('scheda-personale-container');
+            if (containerP) {
+                let html = '';
+                schedaPersonale.forEach(p => {
+                    html += `<span class="tag">👤 ${p} <span class="remove" onclick="rimuoviPersonaleScheda('${p}')">×</span></span>`;
+                });
+                html += '<select id="scheda-personale-select" onchange="aggiungiPersonaleScheda(this)"><option value="">Aggiungi personale...</option></select>';
+                containerP.innerHTML = html;
+                aggiornaSelectScheda();
+            }
+        }
+
+        function generaScheda() {
+            const id = document.getElementById('scheda-commessa').value;
+            if (!id) return alert('Seleziona una commessa');
+            const commessa = dati.commesse.find(c => c.id === id);
+            if (!commessa) return alert('Commessa non trovata');
+
+            schedaAttrezzature = [];
+            schedaPersonale = [];
+
+            if (commessa.personale && commessa.personale !== 'Non assegnato') {
+                schedaPersonale.push(commessa.personale);
+            }
+            if (commessa.attrezzatura && commessa.attrezzatura !== 'Nessuna') {
+                schedaAttrezzature.push(commessa.attrezzatura);
+            }
+
+            schedaCorrente = {
+                id: id,
+                commessa: commessa.descrizione,
+                cliente: commessa.cliente,
+                data: commessa.data,
+                descrizione: commessa.descrizione,
+                tipo: commessa.tipo,
+                stato: commessa.stato,
+                ricorrente: commessa.ricorrente
+            };
+
+            document.getElementById('scheda-titolo').textContent = commessa.descrizione + (commessa.ricorrente ? ' 🔄' : '');
+            document.getElementById('scheda-tipo').textContent = getTipoLabel(commessa.tipo);
+            document.getElementById('scheda-cliente').textContent = commessa.cliente;
+            document.getElementById('scheda-data').textContent = commessa.data ? formatDate(commessa.data) : 'Data non impostata';
+            document.getElementById('scheda-descrizione').textContent = commessa.descrizione;
+            document.getElementById('scheda-stato').textContent = commessa.stato;
+            document.getElementById('scheda-note').value = '';
+
+            const container = document.getElementById('scheda-lavoro-container');
+            container.className = 'scheda-lavoro visible';
+            aggiornaSchedaUI();
+
+            const schedaSalvata = {
+                id: idUnivoco(),
+                data: oggi(),
+                commessa: commessa.descrizione,
+                cliente: commessa.cliente,
+                personale: commessa.personale || 'Non assegnato',
+                commessaId: commessa.id
+            };
+            if (!dati.schede.some(s => s.commessaId === commessa.id && s.data === oggi())) {
+                dati.schede.push(schedaSalvata);
+                salvaDati();
+            }
+
+            const select = document.getElementById('scheda-commessa');
+            const optionToRemove = select.querySelector(`option[value="${id}"]`);
+            if (optionToRemove) {
+                optionToRemove.remove();
+            }
+            if (select.options.length === 1) {
+                select.value = '';
+            }
+        }
+
+        function inviaWhatsApp() {
+            if (!schedaCorrente) return alert('Genera prima una scheda');
+
+            const primoPersonale = schedaPersonale[0];
+            if (!primoPersonale) return alert('Aggiungi almeno un dipendente');
+
+            const personale = dati.personale.find(p => p.nome === primoPersonale);
+            if (!personale || !personale.telefono) {
+                return alert('Personale selezionato senza telefono.');
+            }
+
+            const note = document.getElementById('scheda-note').value.trim();
+            const attrezzatureStr = schedaAttrezzature.length > 0 ? schedaAttrezzature.join(', ') : 'Nessuna';
+            const personaleStr = schedaPersonale.length > 0 ? schedaPersonale.join(', ') : 'Non assegnato';
+            const tipoLabel = getTipoLabel(schedaCorrente.tipo);
+            const ricorrenteStr = schedaCorrente.ricorrente ? ' 🔄 ' + schedaCorrente.ricorrente : '';
+
+            const msg = `📋 *SCHEDA LAVORO VIVAIO*
+━━━━━━━━━━━━━━━━━
+📌 *Commessa:* ${schedaCorrente.commessa}${ricorrenteStr}
+🏷️ *Tipologia:* ${tipoLabel}
+👤 *Cliente:* ${schedaCorrente.cliente}
+📅 *Data:* ${schedaCorrente.data ? formatDate(schedaCorrente.data) : 'Data non impostata'}
+📝 *Descrizione:* ${schedaCorrente.descrizione}
+🔧 *Attrezzature:* ${attrezzatureStr}
+👥 *Personale:* ${personaleStr}
+📊 *Stato:* ${schedaCorrente.stato}
+${note ? '📌 *Note:* ' + note : ''}
+━━━━━━━━━━━━━━━━━
+Inviato da Vivaio Manager`;
+
+            const url =
+                `https://api.whatsapp.com/send?phone=39${personale.telefono.replace(/\s/g, '')}&text=${encodeURIComponent(msg)}`;
+            window.open(url, '_blank');
+        }
+
+        function stampaScheda() {
+            if (!schedaCorrente) return alert('Genera prima una scheda');
+            const note = document.getElementById('scheda-note').value.trim();
+            const attrezzatureStr = schedaAttrezzature.length > 0 ? schedaAttrezzature.join(', ') : 'Nessuna';
+            const personaleStr = schedaPersonale.length > 0 ? schedaPersonale.join(', ') : 'Non assegnato';
+            const tipoLabel = getTipoLabel(schedaCorrente.tipo);
+            const ricorrenteStr = schedaCorrente.ricorrente ? ' 🔄 ' + schedaCorrente.ricorrente : '';
+
+            const printWin = window.open('', '_blank', 'width=800,height=600');
+            printWin.document.write(`
+                <html><head><title>Scheda Lavoro</title>
+                <style>body{font-family:Arial,sans-serif;padding:40px;}h1{color:#1e3c2c;border-bottom:2px solid #1e3c2c;padding-bottom:10px;}
+                .row{margin:8px 0;} .label{font-weight:bold;display:inline-block;width:140px;}
+                .box{border:1px solid #ccc;padding:15px;margin-top:15px;background:#f9f9f9;}
+                .footer{margin-top:30px;font-size:12px;color:#888;text-align:center;border-top:1px solid #ccc;padding-top:10px;}
+                .tag{background:#1e3c2c;color:white;padding:3px 10px;border-radius:12px;display:inline-block;margin:2px;font-size:12px;}</style>
+                </head><body>
+                <h1>📋 SCHEDA LAVORO</h1>
+                <div class="row"><span class="label">Commessa:</span> ${schedaCorrente.commessa}${ricorrenteStr}</div>
+                <div class="row"><span class="label">Tipologia:</span> ${tipoLabel}</div>
+                <div class="row"><span class="label">Cliente:</span> ${schedaCorrente.cliente}</div>
+                <div class="row"><span class="label">Data:</span> ${schedaCorrente.data ? formatDate(schedaCorrente.data) : 'Data non impostata'}</div>
+                <div class="row"><span class="label">Descrizione:</span> ${schedaCorrente.descrizione}</div>
+                <div class="row"><span class="label">Attrezzature:</span> ${attrezzatureStr.split(',').map(a => `<span class="tag">🔧 ${a.trim()}</span>`).join(' ')}</div>
+                <div class="row"><span class="label">Personale:</span> ${personaleStr.split(',').map(p => `<span class="tag">👤 ${p.trim()}</span>`).join(' ')}</div>
+                <div class="row"><span class="label">Stato:</span> ${schedaCorrente.stato}</div>
+                <div class="box"><strong>📌 Note aggiuntive:</strong><br>${note || 'Nessuna nota aggiuntiva'}</div>
+                <div class="footer">Documento generato da Vivaio Manager - ${new Date().toLocaleString('it-IT')}</div>
+                </body></html>
+            `);
+            printWin.document.close();
+            setTimeout(() => { printWin.print(); }, 500);
+        }
+
+        function copiaScheda() {
+            if (!schedaCorrente) return alert('Genera prima una scheda');
+            const note = document.getElementById('scheda-note').value.trim();
+            const attrezzatureStr = schedaAttrezzature.length > 0 ? schedaAttrezzature.join(', ') : 'Nessuna';
+            const personaleStr = schedaPersonale.length > 0 ? schedaPersonale.join(', ') : 'Non assegnato';
+            const tipoLabel = getTipoLabel(schedaCorrente.tipo);
+            const ricorrenteStr = schedaCorrente.ricorrente ? ' 🔄 ' + schedaCorrente.ricorrente : '';
+
+            const msg = `SCHEDA LAVORO VIVAIO
+━━━━━━━━━━━━━━━━━
+Commessa: ${schedaCorrente.commessa}${ricorrenteStr}
+Tipologia: ${tipoLabel}
+Cliente: ${schedaCorrente.cliente}
+Data: ${schedaCorrente.data ? formatDate(schedaCorrente.data) : 'Data non impostata'}
+Descrizione: ${schedaCorrente.descrizione}
+Attrezzature: ${attrezzatureStr}
+Personale: ${personaleStr}
+Stato: ${schedaCorrente.stato}${note ? '\nNote: ' + note : ''}`;
+            navigator.clipboard.writeText(msg).then(() => alert('✅ Scheda copiata negli appunti!')).catch(() =>
+                alert('Errore nella copia'));
+        }
+
+        function visualizzaScheda(id) {
+            const scheda = dati.schede.find(s => s.id === id);
+            if (!scheda) return;
+            const commessa = dati.commesse.find(c => c.id === scheda.commessaId);
+            if (commessa) {
+                document.getElementById('scheda-commessa').value = commessa.id;
+                generaScheda();
+            }
+        }
+
+        // ================================================================
+        //   AGGIORNAMENTO TUTTE LE TABELLE
+        // ================================================================
+        function aggiornaTutteLeTabelle() {
+            ordinaPerNome(dati.clienti);
+
+            renderTabella('tabella-personale', dati.personale, ['nome', 'qualifica', 'telefono'],
+                (item) => `<button class="btn btn-small btn-danger" onclick="eliminaPersonale('${item.id}')">🗑</button>`, 4);
+
+            renderTabella('tabella-attrezzature', dati.attrezzature, ['nome', 'quantita', 'stato'],
+                (item) => `
+                    <button class="btn btn-small" onclick="modificaAttrezzatura('${item.id}')">✏️</button>
+                    <button class="btn btn-small btn-danger" onclick="eliminaAttrezzatura('${item.id}')">🗑</button>
+                `, 4);
+
+            renderTabella('tabella-clienti', dati.clienti, ['nome', 'indirizzo', 'telefono', 'email', 'note'],
+                (item) => `
+                    <button class="btn btn-small" onclick="apriModificaCliente('${item.id}')">✏️</button>
+                    <button class="btn btn-small btn-danger" onclick="eliminaCliente('${item.id}')">🗑</button>
+                `, 6);
+
+            const sopralluoghiConDettagli = dati.sopralluoghi.map(s => {
+                const c = getClienteDettagli(s.cliente);
+                return { ...s, indirizzo: c.indirizzo, telefono: c.telefono };
+            });
+            renderTabella('tabella-sopralluoghi', sopralluoghiConDettagli, ['cliente', 'indirizzo', 'telefono', 'data',
+                    'ora', 'note'
+                ],
+                (item) => `<button class="btn btn-small btn-danger" onclick="eliminaSopralluogo('${item.id}')">🗑</button>`,
+                7);
+
+            const preventiviConDettagli = dati.preventivi.map(p => {
+                const c = getClienteDettagli(p.cliente);
+                return { ...p, indirizzo: c.indirizzo, telefono: c.telefono };
+            });
+            // Aggiungi colonna "Converti" per i preventivi approvati
+            renderTabella('tabella-preventivi', preventiviConDettagli, ['cliente', 'indirizzo', 'telefono', 'data',
+                    'oggetto', 'importo', 'stato'
+                ],
+                (item) => {
+                    let azioni = `
+                        <button class="btn btn-small" onclick="cambiaStatoPreventivo('${item.id}')">🔄</button>
+                    `;
+                    if (item.stato === 'Approvato') {
+                        azioni += `
+                            <button class="btn btn-small btn-converti" onclick="apriConvertiPreventivo('${item.id}')">📋 Converti</button>
+                        `;
+                    }
+                    azioni += `
+                        <button class="btn btn-small btn-danger" onclick="eliminaPreventivo('${item.id}')">🗑</button>
+                    `;
+                    return azioni;
+                }, 8);
+
+            applicaFiltriCommesse();
+
+            const schedeConTipo = dati.schede.map(s => {
+                const commessa = dati.commesse.find(c => c.id === s.commessaId);
+                return { ...s, tipologia: commessa ? getTipoLabel(commessa.tipo) : 'N/A' };
+            });
+            renderTabella('tabella-schede', schedeConTipo, ['data', 'commessa', 'cliente', 'tipologia', 'personale'],
+                (item) => `<button class="btn btn-small" onclick="visualizzaScheda('${item.id}')">📄</button>`, 6);
+
+            document.getElementById('count-personale').textContent = dati.personale.length;
+            document.getElementById('count-attrezzature').textContent = dati.attrezzature.reduce((s, a) => s + (parseInt(a
+                .quantita) || 0), 0);
+            document.getElementById('count-clienti').textContent = dati.clienti.length;
+            document.getElementById('count-commesse').textContent = dati.commesse.filter(c => c.stato !== 'Completata')
+                .length;
+            document.getElementById('count-preventivi').textContent = dati.preventivi.length;
+
+            aggiornaAttivitaRecenti();
+            aggiornaDashboard();
+            renderAgenda();
+            aggiornaSelectClienti();
+            aggiornaSelectAttrezzature();
+            aggiornaSelectPersonale();
+            aggiornaSelectCommesse();
+            aggiornaSelectScheda();
+            aggiornaFiltriClientiCommesse();
+            aggiornaListaClientiScheda();
+        }
+
+        // ================================================================
+        //   ESPORTAZIONE PDF
+        // ================================================================
+        function esportaPDF(tipo) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('landscape', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            let titolo = '';
+            let datiDaEsportare = [];
+            let headers = [];
+
+            switch (tipo) {
+                case 'personale':
+                    titolo = '📋 Elenco Personale';
+                    headers = ['Nome', 'Qualifica', 'Telefono'];
+                    datiDaEsportare = dati.personale.map(p => [p.nome, p.qualifica || '-', p.telefono]);
+                    break;
+                case 'attrezzature':
+                    titolo = '📋 Magazzino Attrezzature';
+                    headers = ['Nome', 'Quantità', 'Stato'];
+                    datiDaEsportare = dati.attrezzature.map(a => [a.nome, a.quantita, a.stato]);
+                    break;
+                case 'clienti':
+                    titolo = '📋 Anagrafica Clienti';
+                    headers = ['Nome', 'Indirizzo', 'Telefono', 'Email'];
+                    datiDaEsportare = dati.clienti.map(c => [c.nome, c.indirizzo || '-', c.telefono || '-', c.email ||
+                        '-'
+                    ]);
+                    break;
+                case 'scheda-cliente':
+                    if (!clienteSelezionato) return alert('Seleziona un cliente prima di esportare');
+                    titolo = `📋 Scheda Cliente - ${clienteSelezionato.nome}`;
+                    const sopralluoghiCliente = dati.sopralluoghi.filter(s => s.cliente === clienteSelezionato.nome);
+                    const preventiviCliente = dati.preventivi.filter(p => p.cliente === clienteSelezionato.nome);
+                    const commesseCliente = dati.commesse.filter(c => c.cliente === clienteSelezionato.nome);
+
+                    doc.setFontSize(18);
+                    doc.text(titolo, 20, 20);
+                    doc.setFontSize(12);
+                    let y = 30;
+                    const righeCliente = [
+                        ['Nome:', clienteSelezionato.nome],
+                        ['Indirizzo:', clienteSelezionato.indirizzo || '-'],
+                        ['Telefono:', clienteSelezionato.telefono || '-'],
+                        ['Email:', clienteSelezionato.email || '-'],
+                        ['Note:', clienteSelezionato.note || '-'],
+                        ['', ''],
+                        ['📊 STATISTICHE', ''],
+                        ['Sopralluoghi:', sopralluoghiCliente.length],
+                        ['Preventivi:', preventiviCliente.length],
+                        ['Commesse totali:', commesseCliente.length],
+                        ['Commesse attive:', commesseCliente.filter(c => c.stato !== 'Completata').length]
+                    ];
+                    righeCliente.forEach(r => {
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(r[0], 20, y);
+                        doc.setFont('helvetica', 'normal');
+                        if (r[1] !== undefined) doc.text(String(r[1]), 80, y);
+                        y += 8;
+                    });
+                    y += 8;
+
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('📋 STORICO ATTIVITÀ', 20, y);
+                    y += 8;
+                    doc.setFont('helvetica', 'normal');
+
+                    let storicoEventi = [];
+                    sopralluoghiCliente.forEach(s => {
+                        storicoEventi.push([s.data || 'N/A', '📍 Sopralluogo', s.note || '-']);
+                    });
+                    preventiviCliente.forEach(p => {
+                        storicoEventi.push([p.data || 'N/A', '📄 Preventivo', `${p.oggetto} - €${(p.importo||0).toFixed(2)}`]);
+                    });
+                    commesseCliente.forEach(c => {
+                        const ric = c.ricorrente ? ' 🔄' : '';
+                        storicoEventi.push([c.data || 'N/A', '📋 Commessa' + ric,
+                            `${c.descrizione} (${getTipoLabel(c.tipo)})`
+                        ]);
+                    });
+                    storicoEventi.sort((a, b) => b[0].localeCompare(a[0]));
+
+                    if (storicoEventi.length > 0) {
+                        doc.autoTable({
+                            head: [
+                                ['Data', 'Tipo', 'Descrizione']
+                            ],
+                            body: storicoEventi.slice(0, 20),
+                            startY: y,
+                            styles: { fontSize: 8, cellPadding: 2 },
+                            headStyles: { fillColor: [30, 60, 44], textColor: [255, 255, 255] }
+                        });
+                    }
+
+                    doc.setFontSize(10);
+                    doc.text('Documento generato da Vivaio Manager - ' + new Date().toLocaleString('it-IT'), 20,
+                        pageHeight - 5);
+                    doc.save(`Scheda_${clienteSelezionato.nome}.pdf`);
+                    return;
+                case 'sopralluoghi':
+                    titolo = '📋 Elenco Sopralluoghi';
+                    headers = ['Cliente', 'Indirizzo', 'Telefono', 'Data', 'Ora', 'Note'];
+                    datiDaEsportare = dati.sopralluoghi.map(s => {
+                        const c = getClienteDettagli(s.cliente);
+                        return [s.cliente, c.indirizzo || '-', c.telefono || '-', s.data || '-', s.ora || '-',
+                            s.note || '-'
+                        ];
+                    });
+                    break;
+                case 'preventivi':
+                    titolo = '📋 Elenco Preventivi';
+                    headers = ['Cliente', 'Indirizzo', 'Telefono', 'Data', 'Oggetto', 'Importo', 'Stato'];
+                    datiDaEsportare = dati.preventivi.map(p => {
+                        const c = getClienteDettagli(p.cliente);
+                        return [p.cliente, c.indirizzo || '-', c.telefono || '-', p.data || '-', p.oggetto,
+                            '€ ' + (p.importo || 0).toFixed(2), p.stato || 'Bozza'
+                        ];
+                    });
+                    break;
+                case 'commesse':
+                    titolo = '📋 Elenco Commesse';
+                    headers = ['Cliente', 'Indirizzo', 'Telefono', 'Tipologia', 'Descrizione', 'Data',
+                        'Attrezzatura', 'Personale', 'Stato', 'Ricorrenza'
+                    ];
+                    datiDaEsportare = dati.commesse.map(c => {
+                        const cl = getClienteDettagli(c.cliente);
+                        return [c.cliente, cl.indirizzo || '-', cl.telefono || '-', getTipoLabel(c.tipo),
+                            c.descrizione, c.data || '-', c.attrezzatura || 'Nessuna',
+                            c.personale || 'Non assegnato', c.stato, c.ricorrente || '-'
+                        ];
+                    });
+                    break;
+                case 'schede':
+                    titolo = '📋 Storico Schede Lavoro';
+                    headers = ['Data', 'Commessa', 'Cliente', 'Tipologia', 'Personale'];
+                    datiDaEsportare = dati.schede.map(s => {
+                        const commessa = dati.commesse.find(c => c.id === s.commessaId);
+                        return [s.data, s.commessa, s.cliente, commessa ? getTipoLabel(commessa.tipo) :
+                            'N/A', s.personale
+                        ];
+                    });
+                    break;
+                case 'scheda':
+                    if (!schedaCorrente) return alert('Genera prima una scheda');
+                    titolo = '📋 Scheda Lavoro';
+                    const note = document.getElementById('scheda-note').value.trim();
+                    const attrezzatureStr = schedaAttrezzature.length > 0 ? schedaAttrezzature.join(', ') : 'Nessuna';
+                    const personaleStr = schedaPersonale.length > 0 ? schedaPersonale.join(', ') : 'Non assegnato';
+                    const tipoLabel = getTipoLabel(schedaCorrente.tipo);
+                    const ricorrenteStr = schedaCorrente.ricorrente ? ' 🔄 ' + schedaCorrente.ricorrente : '';
+
+                    doc.setFontSize(18);
+                    doc.text(titolo, 20, 20);
+                    doc.setFontSize(12);
+                    let yS = 30;
+                    const righeS = [
+                        ['Commessa:', schedaCorrente.commessa + ricorrenteStr],
+                        ['Tipologia:', tipoLabel],
+                        ['Cliente:', schedaCorrente.cliente],
+                        ['Data:', schedaCorrente.data ? formatDate(schedaCorrente.data) : 'Data non impostata'],
+                        ['Descrizione:', schedaCorrente.descrizione],
+                        ['Attrezzature:', attrezzatureStr],
+                        ['Personale:', personaleStr],
+                        ['Stato:', schedaCorrente.stato],
+                        ['Note:', note || 'Nessuna nota']
+                    ];
+                    righeS.forEach(r => {
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(r[0], 20, yS);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(r[1], 80, yS);
+                        yS += 8;
+                    });
+                    doc.setFontSize(10);
+                    doc.text('Documento generato da Vivaio Manager - ' + new Date().toLocaleString('it-IT'), 20, yS +
+                        20);
+                    doc.save('Scheda_Lavoro.pdf');
+                    return;
+                default:
+                    return alert('Tipo non supportato');
+            }
+
+            doc.setFontSize(16);
+            doc.text(titolo, pageWidth / 2, 15, { align: 'center' });
+            doc.setFontSize(10);
+
+            doc.autoTable({
+                head: [headers],
+                body: datiDaEsportare,
+                startY: 25,
+                styles: { fontSize: 7, cellPadding: 2 },
+                headStyles: { fillColor: [30, 60, 44], textColor: [255, 255, 255] },
+                didDrawPage: function(data) {
+                    doc.setFontSize(8);
+                    doc.text('Generato da Vivaio Manager - ' + new Date().toLocaleString('it-IT'), 14, pageHeight -
+                    5);
+                }
+            });
+
+            doc.save(titolo.replace(/[^a-zA-Z0-9]/g, '_') + '.pdf');
+        }
+
+        // ================================================================
+        //   NAVIGAZIONE
+        // ================================================================
+        document.querySelectorAll('.sidebar button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.sidebar button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+                const target = document.getElementById(this.dataset.section);
+                if (target) target.classList.add('active');
+                if (this.dataset.section === 'agenda') renderAgenda();
+                if (this.dataset.section === 'scheda-cliente') {
+                    aggiornaListaClientiScheda();
+                    if (clienteSelezionato) aggiornaSchedaCliente(clienteSelezionato);
+                }
+                if (this.dataset.section === 'dashboard') {
+                    aggiornaDashboard();
+                }
+            });
+        });
+
+        // ================================================================
+        //   AVVIO
+        // ================================================================
+        caricaDati();
+        aggiornaTutteLeTabelle();
+        renderAgenda();
+        aggiornaDashboard();
+
+        if (dati.clienti.length === 0) {
+            dati.clienti = [
+                { id: idUnivoco(), nome: 'Giardini Fioriti', indirizzo: 'Piazza Garibaldi 5, Torino',
+                    telefono: '011234567', email: 'info@giardinifioriti.it', note: 'Nuovo cliente' },
+                { id: idUnivoco(), nome: 'Villa Verdi', indirizzo: 'Via Roma 1, Milano', telefono: '024567890',
+                    email: 'info@villaverdi.it', note: 'Cliente storico' }
+            ];
+            dati.personale = [
+                { id: idUnivoco(), nome: 'Laura Bianchi', qualifica: 'Operaia', telefono: '3339876543' },
+                { id: idUnivoco(), nome: 'Mario Rossi', qualifica: 'Agronomo', telefono: '3331234567' },
+                { id: idUnivoco(), nome: 'Paolo Verdi', qualifica: 'Giardiniere', telefono: '3334567890' }
+            ];
+            dati.attrezzature = [
+                { id: idUnivoco(), nome: 'Carriola', quantita: 5, stato: 'Disponibile' },
+                { id: idUnivoco(), nome: 'Motosega', quantita: 2, stato: 'In uso' },
+                { id: idUnivoco(), nome: 'Tagliasiepi', quantita: 3, stato: 'Disponibile' },
+                { id: idUnivoco(), nome: 'Trapano', quantita: 1, stato: 'Manutenzione' }
+            ];
+            dati.sopralluoghi = [
+                { id: idUnivoco(), cliente: 'Villa Verdi', data: oggi(), ora: '10:30', note: 'Valutare potatura' }
+            ];
+            dati.preventivi = [
+                { id: idUnivoco(), cliente: 'Villa Verdi', data: oggi(), oggetto: 'Potatura alberi',
+                    dettagli: 'Taglio rami secchi', importo: 1500, stato: 'Inviato' }
+            ];
+            dati.commesse = [
+                { id: idUnivoco(), cliente: 'Villa Verdi', tipo: 'potature', descrizione: 'Potatura alberi',
+                    data: '2026-09-25', attrezzatura: 'Motosega', personale: 'Mario Rossi', stato: 'In corso',
+                    ricorrente: null },
+                { id: idUnivoco(), cliente: 'Giardini Fioriti', tipo: 'lavori_su_prati',
+                    descrizione: 'Taglio prato e concimazione', data: '2026-09-28', attrezzatura: 'Carriola',
+                    personale: 'Laura Bianchi', stato: 'In corso', ricorrente: 'settimanale (ogni 1)' }
+            ];
+            salvaDati();
+        }
+    </script>
+</body>
